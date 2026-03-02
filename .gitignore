@@ -6,7 +6,3 @@ streamsniff
 .env.development.local
 .env.test.local
 .env.production.local
-
-# media files
-*.ogg
-*.h264
