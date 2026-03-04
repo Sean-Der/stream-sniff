@@ -2,6 +2,7 @@ package webrtc
 
 import (
 	"encoding/json"
+	"errors"
 	"fmt"
 	"io"
 	"log"
@@ -10,8 +11,8 @@ import (
 	"os"
 	"strconv"
 	"strings"
-	"sync"
 
+	"github.com/google/uuid"
 	"github.com/pion/dtls/v3/pkg/crypto/elliptic"
 	"github.com/pion/ice/v3"
 	"github.com/pion/interceptor"
@@ -21,23 +22,8 @@ import (
 var (
 	apiWhip *webrtc.API
 
-	sessionsMu sync.Mutex
-	sessions   map[string]*webrtc.PeerConnection
-
 	videoRTCPFeedback = []webrtc.RTCPFeedback{{"goog-remb", ""}, {"ccm", "fir"}, {"nack", ""}, {"nack", "pli"}} //nolint:revive
 )
-
-func storeSession(sessionID string, peerConnection *webrtc.PeerConnection) {
-	sessionsMu.Lock()
-	defer sessionsMu.Unlock()
-	sessions[sessionID] = peerConnection
-}
-
-func forgetSession(sessionID string) {
-	sessionsMu.Lock()
-	defer sessionsMu.Unlock()
-	delete(sessions, sessionID)
-}
 
 func getPublicIP() string {
 	req, err := http.Get("http://ip-api.com/json/")
@@ -236,6 +222,68 @@ func newPeerConnection(api *webrtc.API) (*webrtc.PeerConnection, error) {
 	return api.NewPeerConnection(cfg)
 }
 
+func negotiateOffer(
+	offer, bearerToken string,
+	configurePeerConnection func(peerConnection *webrtc.PeerConnection, bearerToken, sessionID string),
+) (string, error) {
+	maybePrintOfferAnswer(offer, true)
+
+	sessionID := uuid.NewString()
+	peerConnection, err := newPeerConnection(apiWhip)
+	if err != nil {
+		return "", err
+	}
+
+	cleanup := func() {
+		if closeErr := peerConnection.Close(); closeErr != nil {
+			log.Printf("bearerToken=%s session=%s close err=%v", bearerToken, sessionID, closeErr)
+		}
+	}
+
+	if configurePeerConnection != nil {
+		configurePeerConnection(peerConnection, bearerToken, sessionID)
+	}
+
+	peerConnection.OnConnectionStateChange(func(state webrtc.PeerConnectionState) {
+		log.Printf("bearerToken=%s session=%s peer-connection=%s", bearerToken, sessionID, state.String())
+
+		if state == webrtc.PeerConnectionStateFailed {
+			if closeErr := peerConnection.Close(); closeErr != nil {
+				log.Printf("bearerToken=%s session=%s close err=%v", bearerToken, sessionID, closeErr)
+			}
+		}
+	})
+
+	if err = peerConnection.SetRemoteDescription(webrtc.SessionDescription{
+		SDP:  offer,
+		Type: webrtc.SDPTypeOffer,
+	}); err != nil {
+		cleanup()
+		return "", err
+	}
+
+	gatherComplete := webrtc.GatheringCompletePromise(peerConnection)
+	answer, err := peerConnection.CreateAnswer(nil)
+	if err != nil {
+		cleanup()
+		return "", err
+	}
+
+	if err = peerConnection.SetLocalDescription(answer); err != nil {
+		cleanup()
+		return "", err
+	}
+
+	<-gatherComplete
+	localDescription := peerConnection.LocalDescription()
+	if localDescription == nil {
+		cleanup()
+		return "", errors.New("missing local description")
+	}
+
+	return maybePrintOfferAnswer(appendAnswer(localDescription.SDP), false), nil
+}
+
 func appendAnswer(in string) string {
 	if extraCandidate := os.Getenv("APPEND_CANDIDATE"); extraCandidate != "" {
 		index := strings.Index(in, "a=end-of-candidates")
@@ -258,8 +306,6 @@ func maybePrintOfferAnswer(sdp string, isOffer bool) string {
 }
 
 func Configure() {
-	sessions = map[string]*webrtc.PeerConnection{}
-
 	mediaEngine := &webrtc.MediaEngine{}
 	if err := PopulateMediaEngine(mediaEngine); err != nil {
 		panic(err)

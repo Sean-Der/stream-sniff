@@ -254,7 +254,10 @@
 
       async function createPeerConnection() {
         const peerConnection = new RTCPeerConnection();
-        peerConnection.createDataChannel("analyze");
+        const analyzeDataChannel = peerConnection.createDataChannel("analyze");
+        analyzeDataChannel.onmessage = (event) => {
+          console.log(event.data);
+        };
 
         const offer = await peerConnection.createOffer();
         await peerConnection.setLocalDescription(offer);
