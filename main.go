@@ -23,12 +23,12 @@ const (
 
 var (
 	errAuthorizationNotSet = errors.New("authorization was not set")
-	errInvalidStreamKey    = errors.New("invalid stream key format")
+	errInvalidBearerToken  = errors.New("invalid Bearer Token format")
 
-	streamKeyRegex = regexp.MustCompile(`^[a-zA-Z0-9_\-\.~]+$`)
+	bearerTokenRegex = regexp.MustCompile(`^[a-zA-Z0-9_\-\.~]+$`)
 )
 
-func getStreamKey(r *http.Request) (string, error) {
+func getBearerToken(r *http.Request) (string, error) {
 	authorizationHeader := r.Header.Get("Authorization")
 	if authorizationHeader == "" {
 		return "", errAuthorizationNotSet
@@ -36,15 +36,15 @@ func getStreamKey(r *http.Request) (string, error) {
 
 	const bearerPrefix = "Bearer "
 	if !strings.HasPrefix(authorizationHeader, bearerPrefix) {
-		return "", errInvalidStreamKey
+		return "", errInvalidBearerToken
 	}
 
-	streamKey := strings.TrimPrefix(authorizationHeader, bearerPrefix)
-	if !streamKeyRegex.MatchString(streamKey) {
-		return "", errInvalidStreamKey
+	bearerToken := strings.TrimPrefix(authorizationHeader, bearerPrefix)
+	if !bearerTokenRegex.MatchString(bearerToken) {
+		return "", errInvalidBearerToken
 	}
 
-	return streamKey, nil
+	return bearerToken, nil
 }
 
 func logHTTPError(w http.ResponseWriter, err string, code int) {
@@ -52,13 +52,13 @@ func logHTTPError(w http.ResponseWriter, err string, code int) {
 	http.Error(w, err, code)
 }
 
-func offerHandler(location string, negotiate func(offer, streamKey string) (string, error)) http.HandlerFunc {
+func offerHandler(location string, negotiate func(offer, bearerToken string) (string, error)) http.HandlerFunc {
 	return func(res http.ResponseWriter, r *http.Request) {
 		if r.Method != http.MethodPost {
 			return
 		}
 
-		streamKey, err := getStreamKey(r)
+		bearerToken, err := getBearerToken(r)
 		if err != nil {
 			logHTTPError(res, err.Error(), http.StatusBadRequest)
 			return
@@ -70,7 +70,7 @@ func offerHandler(location string, negotiate func(offer, streamKey string) (stri
 			return
 		}
 
-		answer, err := negotiate(string(offer), streamKey)
+		answer, err := negotiate(string(offer), bearerToken)
 		if err != nil {
 			logHTTPError(res, err.Error(), http.StatusBadRequest)
 			return

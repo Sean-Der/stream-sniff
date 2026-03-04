@@ -216,13 +216,13 @@
           </div>
 
           <div class="input-group">
-            <label for="stream-key">Stream key</label>
-            <input id="stream-key" type="text" spellcheck="false" readonly />
+            <label for="bearer-token">Bearer Token</label>
+            <input id="bearer-token" type="text" spellcheck="false" readonly />
           </div>
         </div>
 
         <div class="actions">
-          <button class="copy-button" id="copy-button" type="button">Copy stream key</button>
+          <button class="copy-button" id="copy-button" type="button">Copy Bearer Token</button>
         </div>
 
         <p class="status" id="status" aria-live="polite"></p>
@@ -230,22 +230,15 @@
     </div>
     <script>
       const serverInput = document.getElementById("server");
-      const streamKeyInput = document.getElementById("stream-key");
+      const bearerTokenInput = document.getElementById("bearer-token");
       const copyButton = document.getElementById("copy-button");
       const status = document.getElementById("status");
 
       function randomChunk() {
-        if (window.crypto && window.crypto.getRandomValues) {
-          const alphabet = "abcdefghjkmnpqrstuvwxyz23456789";
-          const bytes = new Uint8Array(5);
-          window.crypto.getRandomValues(bytes);
-          return Array.from(bytes, (byte) => alphabet[byte % alphabet.length]).join("");
-        }
-
         return Math.random().toString(36).slice(2, 7);
       }
 
-      function generateStreamKey() {
+      function generateBearerToken() {
         return [randomChunk(), randomChunk(), randomChunk(), randomChunk(), randomChunk()].join("-");
       }
 
@@ -253,9 +246,9 @@
         status.textContent = message;
       }
 
-      function refreshStreamKey() {
+      function refreshBearerToken() {
         serverInput.value = new URL("/api/whip", window.location.href).toString();
-        streamKeyInput.value = generateStreamKey();
+        bearerTokenInput.value = generateBearerToken();
         setStatus("");
       }
 
@@ -269,7 +262,7 @@
         const response = await fetch(new URL("/api/analyze", window.location.href), {
           method: "POST",
           headers: {
-            Authorization: `Bearer ${streamKeyInput.value}`,
+            Authorization: `Bearer ${bearerTokenInput.value}`,
             "Content-Type": "application/sdp",
           },
           body: peerConnection.localDescription ? peerConnection.localDescription.sdp : offer.sdp,
@@ -279,19 +272,19 @@
         await peerConnection.setRemoteDescription({ type: "answer", sdp: answer });
       }
 
-      async function copyStreamKey() {
+      async function copyBearerToken() {
         try {
-          await navigator.clipboard.writeText(streamKeyInput.value);
-          setStatus("Stream key copied.");
+          await navigator.clipboard.writeText(bearerTokenInput.value);
+          setStatus("Bearer Token copied.");
         } catch (error) {
-          streamKeyInput.focus();
-          streamKeyInput.select();
-          setStatus("Copy failed. Select the key and copy it manually.");
+          bearerTokenInput.focus();
+          bearerTokenInput.select();
+          setStatus("Copy failed. Select the Bearer Token and copy it manually.");
         }
       }
 
-      copyButton.addEventListener("click", copyStreamKey);
-      refreshStreamKey();
+      copyButton.addEventListener("click", copyBearerToken);
+      refreshBearerToken();
       createPeerConnection();
     </script>
   </body>

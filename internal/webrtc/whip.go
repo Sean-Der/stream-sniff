@@ -9,10 +9,10 @@ import (
 	"github.com/pion/webrtc/v4"
 )
 
-func readAndLogRTP(streamKey, sessionID string, remoteTrack *webrtc.TrackRemote) {
+func readAndLogRTP(bearerToken, sessionID string, remoteTrack *webrtc.TrackRemote) {
 	log.Printf(
-		"stream=%s session=%s track-start kind=%s id=%s rid=%q stream=%s codec=%s payload=%d clock=%d ssrc=%d",
-		streamKey,
+		"bearerToken=%s session=%s track-start kind=%s id=%s rid=%q stream=%s codec=%s payload=%d clock=%d ssrc=%d",
+		bearerToken,
 		sessionID,
 		remoteTrack.Kind().String(),
 		remoteTrack.ID(),
@@ -28,16 +28,16 @@ func readAndLogRTP(streamKey, sessionID string, remoteTrack *webrtc.TrackRemote)
 		packet, _, err := remoteTrack.ReadRTP()
 		switch {
 		case errors.Is(err, io.EOF):
-			log.Printf("stream=%s session=%s track-end kind=%s err=eof", streamKey, sessionID, remoteTrack.Kind().String())
+			log.Printf("bearerToken=%s session=%s track-end kind=%s err=eof", bearerToken, sessionID, remoteTrack.Kind().String())
 			return
 		case err != nil:
-			log.Printf("stream=%s session=%s track-end kind=%s err=%v", streamKey, sessionID, remoteTrack.Kind().String(), err)
+			log.Printf("bearerToken=%s session=%s track-end kind=%s err=%v", bearerToken, sessionID, remoteTrack.Kind().String(), err)
 			return
 		}
 
 		log.Printf(
-			"stream=%s session=%s kind=%s seq=%d ts=%d marker=%t payload=%d ssrc=%d",
-			streamKey,
+			"bearerToken=%s session=%s kind=%s seq=%d ts=%d marker=%t payload=%d ssrc=%d",
+			bearerToken,
 			sessionID,
 			remoteTrack.Kind().String(),
 			packet.SequenceNumber,
@@ -49,15 +49,15 @@ func readAndLogRTP(streamKey, sessionID string, remoteTrack *webrtc.TrackRemote)
 	}
 }
 
-func WHIP(offer, streamKey string) (string, error) {
-	return negotiateOffer(offer, streamKey)
+func WHIP(offer, bearerToken string) (string, error) {
+	return negotiateOffer(offer, bearerToken)
 }
 
-func Analyze(offer, streamKey string) (string, error) {
-	return negotiateOffer(offer, streamKey)
+func Analyze(offer, bearerToken string) (string, error) {
+	return negotiateOffer(offer, bearerToken)
 }
 
-func negotiateOffer(offer, streamKey string) (string, error) {
+func negotiateOffer(offer, bearerToken string) (string, error) {
 	maybePrintOfferAnswer(offer, true)
 
 	sessionID := uuid.NewString()
@@ -70,16 +70,16 @@ func negotiateOffer(offer, streamKey string) (string, error) {
 	cleanup := func() {
 		forgetSession(sessionID)
 		if closeErr := peerConnection.Close(); closeErr != nil {
-			log.Printf("stream=%s session=%s close err=%v", streamKey, sessionID, closeErr)
+			log.Printf("bearerToken=%s session=%s close err=%v", bearerToken, sessionID, closeErr)
 		}
 	}
 
 	peerConnection.OnTrack(func(remoteTrack *webrtc.TrackRemote, _ *webrtc.RTPReceiver) {
-		go readAndLogRTP(streamKey, sessionID, remoteTrack)
+		go readAndLogRTP(bearerToken, sessionID, remoteTrack)
 	})
 
 	peerConnection.OnConnectionStateChange(func(state webrtc.PeerConnectionState) {
-		log.Printf("stream=%s session=%s peer-connection=%s", streamKey, sessionID, state.String())
+		log.Printf("bearerToken=%s session=%s peer-connection=%s", bearerToken, sessionID, state.String())
 		if state == webrtc.PeerConnectionStateFailed || state == webrtc.PeerConnectionStateClosed {
 			forgetSession(sessionID)
 		}

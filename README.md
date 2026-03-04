@@ -34,11 +34,11 @@ To use Streamsniff with OBS, set your output to WebRTC and configure the WHIP ta
 
 - Service: `WHIP`
 - Server: `http://localhost:8080/api/whip`
-- Stream Key: any valid stream key
+- Bearer Token: any valid Bearer Token
 
 ### FFmpeg
 
-The following command publishes a test feed to `http://localhost:8080/api/whip` with a bearer token of `ffmpeg-test`:
+The following command publishes a test feed to `http://localhost:8080/api/whip` with a Bearer Token of `ffmpeg-test`:
 
 ```shell
 ffmpeg \
@@ -167,4 +167,4 @@ These values are parsed by the Go backend and applied to WHIP `PeerConnection` c
 | Endpoint     | Description                                                                                           |
 | ------------ | ----------------------------------------------------------------------------------------------------- |
 | `/`          | Serves `index.html` from disk .                                                                       |
-| `/api/whip`  | Accepts WHIP `POST` requests. Requires `Authorization: Bearer <streamKey>` and returns an SDP answer. |
+| `/api/whip`  | Accepts WHIP `POST` requests. Requires `Authorization: Bearer <bearerToken>` and returns an SDP answer. |
