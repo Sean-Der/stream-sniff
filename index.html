@@ -5,37 +5,274 @@
     <meta name="viewport" content="width=device-width, initial-scale=1" />
     <title>streamsniff</title>
     <style>
+      :root {
+        --page-bg-top: #0f172a;
+        --page-bg-bottom: #111827;
+        --card-bg: #1f2937;
+        --card-border: #374151;
+        --text: #ffffff;
+        --text-muted: #d1d5db;
+        --text-soft: #9ca3af;
+        --input-bg: #374151;
+        --input-border: #374151;
+        --input-placeholder: #d1d5db;
+        --button-bg: #1d4ed8;
+        --button-hover: #2563eb;
+        --success: #86efac;
+        --shadow: 0 10px 15px -3px rgba(0, 0, 0, 0.1), 0 4px 6px -4px rgba(0, 0, 0, 0.1);
+      }
+
+      * {
+        box-sizing: border-box;
+      }
+
       body {
         margin: 0;
         min-height: 100vh;
-        display: grid;
-        place-items: center;
-        background: #f5f5f5;
-        color: #111;
-        font-family: sans-serif;
+        padding: 24px;
+        background:
+          radial-gradient(circle at top, rgba(96, 165, 250, 0.18), transparent 28%),
+          radial-gradient(circle at 20% 80%, rgba(59, 130, 246, 0.12), transparent 24%),
+          linear-gradient(180deg, var(--page-bg-top) 0%, var(--page-bg-bottom) 100%);
+        color: var(--text);
+        font-family:
+          -apple-system,
+          BlinkMacSystemFont,
+          "Segoe UI",
+          "Roboto",
+          "Oxygen",
+          "Ubuntu",
+          "Cantarell",
+          "Fira Sans",
+          "Droid Sans",
+          "Helvetica Neue",
+          sans-serif;
+        -webkit-font-smoothing: antialiased;
+        -moz-osx-font-smoothing: grayscale;
+      }
+
+      .shell {
+        width: min(42rem, 100%);
+        margin: 72px auto 0;
       }
 
       main {
-        width: min(640px, calc(100% - 32px));
-        padding: 24px;
-        border: 1px solid #ddd;
-        border-radius: 12px;
-        background: #fff;
+        display: flex;
+        flex-direction: column;
+        gap: 12px;
+        padding: 32px;
+        border: 1px solid var(--card-border);
+        border-radius: 6px;
+        background: var(--card-bg);
+        box-shadow: var(--shadow);
       }
 
       h1 {
-        margin-top: 0;
+        margin: 0;
+        font-size: 2.25rem;
+        font-weight: 300;
+        line-height: 1.1;
+      }
+
+      p {
+        margin: 0;
+        color: var(--text-muted);
+        line-height: 1.5;
+      }
+
+      ul {
+        margin: 4px 0 0;
+        padding-left: 18px;
+        color: var(--text-muted);
+      }
+
+      li + li {
+        margin-top: 6px;
       }
 
       code {
-        font-family: monospace;
+        font-family: source-code-pro, Menlo, Monaco, Consolas, "Courier New", monospace;
+      }
+
+      .input-group {
+        display: flex;
+        flex-direction: column;
+        gap: 8px;
+        margin-top: 4px;
+      }
+
+      .setup {
+        display: flex;
+        flex-direction: column;
+        gap: 12px;
+        margin-top: 8px;
+      }
+
+      label {
+        display: block;
+        font-size: 0.875rem;
+        font-weight: 700;
+      }
+
+      input {
+        width: 100%;
+        min-height: 46px;
+        padding: 8px 12px;
+        appearance: none;
+        border: 1px solid var(--input-border);
+        border-radius: 2px;
+        outline: none;
+        background: var(--input-bg);
+        color: var(--text);
+        font: inherit;
+        line-height: 1.25;
+        box-shadow: var(--shadow);
+      }
+
+      input[readonly] {
+        cursor: default;
+      }
+
+      input::placeholder {
+        color: var(--input-placeholder);
+      }
+
+      .actions {
+        display: flex;
+        flex-wrap: wrap;
+        gap: 8px;
+        margin-top: 4px;
+      }
+
+      button {
+        border: 0;
+        border-radius: 4px;
+        padding: 10px 14px;
+        color: var(--text);
+        font: inherit;
+        font-weight: 600;
+        cursor: pointer;
+      }
+
+      .copy-button {
+        background: var(--button-bg);
+      }
+
+      .copy-button:hover {
+        background: var(--button-hover);
+      }
+
+      .status {
+        min-height: 1.25rem;
+        color: var(--success);
+        font-size: 0.95rem;
+      }
+
+      .hint {
+        margin-top: 4px;
+        font-size: 0.95rem;
+        color: var(--text-soft);
+      }
+
+      @media (max-width: 680px) {
+        body {
+          padding: 16px;
+        }
+
+        .shell {
+          margin-top: 32px;
+        }
+
+        main {
+          padding: 24px;
+        }
       }
     </style>
   </head>
   <body>
-    <main>
-      <h1>streamsniff</h1>
-      <p>This server accepts WHIP publishes at <code>/api/whip</code>.</p>
-    </main>
+    <div class="shell">
+      <main>
+        <h1>streamsniff</h1>
+        <p>
+          Streamsniff analyzes your streaming video so you can get the best quality possible. It inspects what you send
+          and explains, in plain language, how it could be better.
+        </p>
+
+        <ul>
+          <li>See whether your video looks overly compressed.</li>
+          <li>Check the resolution and H.264 profile you are sending.</li>
+          <li>Get practical recommendations and the trade-offs behind them.</li>
+        </ul>
+
+        <div class="setup">
+          <div class="input-group">
+            <label for="service">Service</label>
+            <input id="service" type="text" value="WHIP" readonly />
+          </div>
+
+          <div class="input-group">
+            <label for="server">Server</label>
+            <input id="server" type="text" spellcheck="false" readonly />
+          </div>
+
+          <div class="input-group">
+            <label for="stream-key">Stream key</label>
+            <input id="stream-key" type="text" spellcheck="false" readonly />
+          </div>
+        </div>
+
+        <div class="actions">
+          <button class="copy-button" id="copy-button" type="button">Copy stream key</button>
+        </div>
+
+        <p class="status" id="status" aria-live="polite"></p>
+        <p class="hint">Use the Service, Server, and Stream key shown here when configuring OBS or FFmpeg.</p>
+      </main>
+    </div>
+    <script>
+      const serverInput = document.getElementById("server");
+      const streamKeyInput = document.getElementById("stream-key");
+      const copyButton = document.getElementById("copy-button");
+      const status = document.getElementById("status");
+
+      function randomChunk() {
+        if (window.crypto && window.crypto.getRandomValues) {
+          const alphabet = "abcdefghjkmnpqrstuvwxyz23456789";
+          const bytes = new Uint8Array(5);
+          window.crypto.getRandomValues(bytes);
+          return Array.from(bytes, (byte) => alphabet[byte % alphabet.length]).join("");
+        }
+
+        return Math.random().toString(36).slice(2, 7);
+      }
+
+      function generateStreamKey() {
+        return [randomChunk(), randomChunk(), randomChunk(), randomChunk(), randomChunk()].join("-");
+      }
+
+      function setStatus(message) {
+        status.textContent = message;
+      }
+
+      function refreshStreamKey() {
+        serverInput.value = new URL("/api/whip", window.location.href).toString();
+        streamKeyInput.value = generateStreamKey();
+        setStatus("");
+      }
+
+      async function copyStreamKey() {
+        try {
+          await navigator.clipboard.writeText(streamKeyInput.value);
+          setStatus("Stream key copied.");
+        } catch (error) {
+          streamKeyInput.focus();
+          streamKeyInput.select();
+          setStatus("Copy failed. Select the key and copy it manually.");
+        }
+      }
+
+      copyButton.addEventListener("click", copyStreamKey);
+      refreshStreamKey();
+    </script>
   </body>
 </html>
