@@ -50,6 +50,14 @@ func readAndLogRTP(streamKey, sessionID string, remoteTrack *webrtc.TrackRemote)
 }
 
 func WHIP(offer, streamKey string) (string, error) {
+	return negotiateOffer(offer, streamKey)
+}
+
+func Analyze(offer, streamKey string) (string, error) {
+	return negotiateOffer(offer, streamKey)
+}
+
+func negotiateOffer(offer, streamKey string) (string, error) {
 	maybePrintOfferAnswer(offer, true)
 
 	sessionID := uuid.NewString()
@@ -77,7 +85,7 @@ func WHIP(offer, streamKey string) (string, error) {
 		}
 	})
 
-	if err := peerConnection.SetRemoteDescription(webrtc.SessionDescription{
+	if err = peerConnection.SetRemoteDescription(webrtc.SessionDescription{
 		SDP:  offer,
 		Type: webrtc.SDPTypeOffer,
 	}); err != nil {
@@ -85,6 +93,10 @@ func WHIP(offer, streamKey string) (string, error) {
 		return "", err
 	}
 
+	return createAnswer(peerConnection, cleanup)
+}
+
+func createAnswer(peerConnection *webrtc.PeerConnection, cleanup func()) (string, error) {
 	gatherComplete := webrtc.GatheringCompletePromise(peerConnection)
 	answer, err := peerConnection.CreateAnswer(nil)
 	if err != nil {

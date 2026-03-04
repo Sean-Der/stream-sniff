@@ -52,34 +52,36 @@ func logHTTPError(w http.ResponseWriter, err string, code int) {
 	http.Error(w, err, code)
 }
 
-func whipHandler(res http.ResponseWriter, r *http.Request) {
-	if r.Method != http.MethodPost {
-		return
-	}
+func offerHandler(location string, negotiate func(offer, streamKey string) (string, error)) http.HandlerFunc {
+	return func(res http.ResponseWriter, r *http.Request) {
+		if r.Method != http.MethodPost {
+			return
+		}
 
-	streamKey, err := getStreamKey(r)
-	if err != nil {
-		logHTTPError(res, err.Error(), http.StatusBadRequest)
-		return
-	}
+		streamKey, err := getStreamKey(r)
+		if err != nil {
+			logHTTPError(res, err.Error(), http.StatusBadRequest)
+			return
+		}
 
-	offer, err := io.ReadAll(r.Body)
-	if err != nil {
-		logHTTPError(res, err.Error(), http.StatusBadRequest)
-		return
-	}
+		offer, err := io.ReadAll(r.Body)
+		if err != nil {
+			logHTTPError(res, err.Error(), http.StatusBadRequest)
+			return
+		}
 
-	answer, err := internalwebrtc.WHIP(string(offer), streamKey)
-	if err != nil {
-		logHTTPError(res, err.Error(), http.StatusBadRequest)
-		return
-	}
+		answer, err := negotiate(string(offer), streamKey)
+		if err != nil {
+			logHTTPError(res, err.Error(), http.StatusBadRequest)
+			return
+		}
 
-	res.Header().Add("Location", "/api/whip")
-	res.Header().Add("Content-Type", "application/sdp")
-	res.WriteHeader(http.StatusCreated)
-	if _, err = fmt.Fprint(res, answer); err != nil {
-		log.Println(err)
+		res.Header().Add("Location", location)
+		res.Header().Add("Content-Type", "application/sdp")
+		res.WriteHeader(http.StatusCreated)
+		if _, err = fmt.Fprint(res, answer); err != nil {
+			log.Println(err)
+		}
 	}
 }
 
@@ -136,7 +138,8 @@ func main() {
 	internalwebrtc.Configure()
 
 	http.HandleFunc("/", indexHandler)
-	http.HandleFunc("/api/whip", corsHandler(whipHandler))
+	http.HandleFunc("/api/whip", corsHandler(offerHandler("/api/whip", internalwebrtc.WHIP)))
+	http.HandleFunc("/api/analyze", corsHandler(offerHandler("/api/analyze", internalwebrtc.Analyze)))
 
 	server := &http.Server{
 		Addr: os.Getenv("HTTP_ADDRESS"),

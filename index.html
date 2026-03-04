@@ -226,7 +226,6 @@
         </div>
 
         <p class="status" id="status" aria-live="polite"></p>
-        <p class="hint">Use the Service, Server, and Stream key shown here when configuring OBS or FFmpeg.</p>
       </main>
     </div>
     <script>
@@ -260,6 +259,26 @@
         setStatus("");
       }
 
+      async function createPeerConnection() {
+        const peerConnection = new RTCPeerConnection();
+        peerConnection.createDataChannel("analyze");
+
+        const offer = await peerConnection.createOffer();
+        await peerConnection.setLocalDescription(offer);
+
+        const response = await fetch(new URL("/api/analyze", window.location.href), {
+          method: "POST",
+          headers: {
+            Authorization: `Bearer ${streamKeyInput.value}`,
+            "Content-Type": "application/sdp",
+          },
+          body: peerConnection.localDescription ? peerConnection.localDescription.sdp : offer.sdp,
+        });
+
+        const answer = await response.text();
+        await peerConnection.setRemoteDescription({ type: "answer", sdp: answer });
+      }
+
       async function copyStreamKey() {
         try {
           await navigator.clipboard.writeText(streamKeyInput.value);
@@ -273,6 +292,7 @@
 
       copyButton.addEventListener("click", copyStreamKey);
       refreshStreamKey();
+      createPeerConnection();
     </script>
   </body>
 </html>
