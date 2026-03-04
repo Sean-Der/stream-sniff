@@ -1,4 +1,4 @@
-module streamsniff
+module stream-sniff
 
 go 1.24.0
 

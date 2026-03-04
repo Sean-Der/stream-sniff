@@ -11,7 +11,7 @@ import (
 	"regexp"
 	"strings"
 
-	internalwebrtc "streamsniff/internal/webrtc"
+	internalwebrtc "stream-sniff/internal/webrtc"
 
 	"github.com/joho/godotenv"
 )

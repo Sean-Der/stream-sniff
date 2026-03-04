@@ -1,6 +1,6 @@
-# Streamsniff
+# Stream Sniff
 
-- [What is Streamsniff](#what-is-streamsniff)
+- [What is Stream Sniff](#what-is-stream-sniff)
 - [Using](#using)
   - [OBS Broadcasting](#obs-broadcasting)
   - [FFmpeg Broadcasting](#ffmpeg-broadcasting)
@@ -12,9 +12,9 @@
 - [Environment Variables](#environment-variables)
 - [Design](#design)
 
-## What is Streamsniff
+## What is Stream Sniff
 
-Streamsniff analyzes and helps you debug your streaming video so you can get the best quality possible.
+Stream Sniff analyzes and helps you debug your streaming video so you can get the best quality possible.
 It inspects the incoming video and explains in plain language what you are sending, and how it could be better.
 
 The goal is to help someone answer practical questions like:
@@ -30,7 +30,7 @@ This was written as a sibling project of [Broadcast Box](https://github.com/glim
 
 ### OBS
 
-To use Streamsniff with OBS, set your output to WebRTC and configure the WHIP target like this:
+To use Stream Sniff with OBS, set your output to WebRTC and configure the WHIP target like this:
 
 - Service: `WHIP`
 - Server: `http://localhost:8080/api/whip`
@@ -89,7 +89,7 @@ A Docker image is included for local or server deployments.
 Build it with:
 
 ```shell
-docker build -t streamsniff .
+docker build -t stream-sniff .
 ```
 
 If you want to run locally with a fixed UDP mux port, use something like:
@@ -100,18 +100,18 @@ docker run \
   -e NAT_1_TO_1_IP=127.0.0.1 \
   -p 8080:8080 \
   -p 8080:8080/udp \
-  streamsniff
+  stream-sniff
 ```
 
 If you are running on a Linux host or cloud VM, `host` networking is usually simpler:
 
 ```shell
-docker run --net=host -e INCLUDE_PUBLIC_IP_IN_NAT_1_TO_1_IP=yes streamsniff
+docker run --net=host -e INCLUDE_PUBLIC_IP_IN_NAT_1_TO_1_IP=yes stream-sniff
 ```
 
 ### Docker Compose
 
-[docker-compose.yaml](./docker-compose.yaml) starts Streamsniff in `host` network mode and sets a minimal production
+[docker-compose.yaml](./docker-compose.yaml) starts Stream Sniff in `host` network mode and sets a minimal production
 environment.
 
 To start it:

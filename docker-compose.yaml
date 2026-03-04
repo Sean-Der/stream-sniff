@@ -1,10 +1,10 @@
 version: "3"
 
 services:
-  streamsniff:
+  stream-sniff:
     build: .
-    container_name: streamsniff
-    hostname: streamsniff
+    container_name: stream-sniff
+    hostname: stream-sniff
     environment:
       APP_ENV: production
       HTTP_ADDRESS: ":8080"
