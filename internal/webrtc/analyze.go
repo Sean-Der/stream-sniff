@@ -1,7 +1,7 @@
 package webrtc
 
 import (
-	"fmt"
+	"encoding/json"
 	"log"
 	"sync"
 
@@ -13,15 +13,25 @@ var (
 	anaylzeDataChannels     = map[string][]*webrtc.DataChannel{}
 )
 
-func writeAnalyzeMessage(bearerToken, format string, args ...any) {
+type analysisItem struct {
+	ID      string `json:"id"`
+	Label   string `json:"label"`
+	Message string `json:"message"`
+}
+
+func writeAnalyzeMessage(bearerToken string, analyses []analysisItem) {
 	anaylzeDataChannelsLock.Lock()
 	defer anaylzeDataChannelsLock.Unlock()
 
-	message := fmt.Sprintf(format, args...)
+	message, err := json.Marshal(analyses)
+	if err != nil {
+		log.Printf("bearerToken=%s encode-analysis err=%v", bearerToken, err)
+		return
+	}
 
 	for _, dataChannel := range anaylzeDataChannels[bearerToken] {
-		if err := dataChannel.SendText(message); err != nil {
-			log.Printf("bearerToken=%s data-channel label=%s send err=%v", bearerToken, dataChannel.Label(), err)
+		if err := dataChannel.SendText(string(message)); err != nil {
+			log.Printf("bearerToken=%s data-channel label=%s send-analysis err=%v", bearerToken, dataChannel.Label(), err)
 		}
 	}
 }

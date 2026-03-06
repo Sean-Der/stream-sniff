@@ -174,6 +174,38 @@
         color: var(--text-soft);
       }
 
+      .analysis-list {
+        margin: 4px 0 0;
+        padding: 0;
+        list-style: none;
+        display: flex;
+        flex-direction: column;
+        gap: 8px;
+      }
+
+      .analysis-item {
+        border: 1px solid var(--card-border);
+        border-radius: 4px;
+        padding: 10px 12px;
+        background: rgba(255, 255, 255, 0.03);
+      }
+
+      .analysis-item-id {
+        margin: 0;
+        font-size: 0.9rem;
+        font-weight: 700;
+        color: var(--text-soft);
+      }
+
+      .analysis-item-message {
+        margin: 6px 0 0;
+        color: var(--text-muted);
+      }
+
+      .analysis-empty {
+        color: var(--text-soft);
+      }
+
       @media (max-width: 680px) {
         body {
           padding: 16px;
@@ -226,6 +258,8 @@
         </div>
 
         <p class="status" id="status" aria-live="polite"></p>
+
+        <ul id="analysis-list" class="analysis-list"></ul>
       </main>
     </div>
     <script>
@@ -233,6 +267,8 @@
       const bearerTokenInput = document.getElementById("bearer-token");
       const copyButton = document.getElementById("copy-button");
       const status = document.getElementById("status");
+      const analysisList = document.getElementById("analysis-list");
+      const analysesById = new Map();
 
       function randomChunk() {
         return Math.random().toString(36).slice(2, 7);
@@ -256,7 +292,7 @@
         const peerConnection = new RTCPeerConnection();
         const analyzeDataChannel = peerConnection.createDataChannel("analyze");
         analyzeDataChannel.onmessage = (event) => {
-          console.log(event.data);
+          applyAnalyses(JSON.parse(event.data));
         };
 
         const offer = await peerConnection.createOffer();
@@ -276,14 +312,8 @@
       }
 
       async function copyBearerToken() {
-        try {
-          await navigator.clipboard.writeText(bearerTokenInput.value);
-          setStatus("Bearer Token copied.");
-        } catch (error) {
-          bearerTokenInput.focus();
-          bearerTokenInput.select();
-          setStatus("Copy failed. Select the Bearer Token and copy it manually.");
-        }
+        await navigator.clipboard.writeText(bearerTokenInput.value);
+        setStatus("Bearer Token copied.");
       }
 
       copyButton.addEventListener("click", copyBearerToken);

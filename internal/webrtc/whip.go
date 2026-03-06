@@ -2,6 +2,7 @@ package webrtc
 
 import (
 	"errors"
+	"fmt"
 	"io"
 	"log"
 
@@ -49,26 +50,18 @@ func readAndLogRTP(bearerToken, sessionID string, remoteTrack *webrtc.TrackRemot
 
 				writeAnalyzeMessage(
 					bearerToken,
-					"sps profile_idc=%d level_idc=%d sps_id=%d width=%d height=%d",
-					sps.ProfileIDC,
-					sps.LevelIDC,
-					sps.SPSID,
-					sps.Width,
-					sps.Height,
-				)
-			case 8:
-				pps, parseErr := internalh264.ParsePPSInfo(nalu)
-				if parseErr != nil {
-					log.Printf("bearerToken=%s session=%s pps-parse err=%v", bearerToken, sessionID, parseErr)
-					continue
-				}
-
-				writeAnalyzeMessage(
-					bearerToken,
-					"pps pps_id=%d sps_id=%d entropy=%s",
-					pps.PPSID,
-					pps.SPSID,
-					pps.EntropyCoding,
+					[]analysisItem{
+						{
+							ID:      "resolution",
+							Label:   "information",
+							Message: fmt.Sprintf("Your video resolution is %dx%d.", sps.Width, sps.Height),
+						},
+						{
+							ID:      "profile_level",
+							Label:   "information",
+							Message: fmt.Sprintf("Video format: H.264 %s, level %s.", sps.ProfileName(), sps.LevelName()),
+						},
+					},
 				)
 			}
 		}

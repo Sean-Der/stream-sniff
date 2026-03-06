@@ -4,6 +4,7 @@ import (
 	"errors"
 	"fmt"
 	"io"
+	"strconv"
 )
 
 type bitReader struct {
@@ -147,6 +148,74 @@ type SPSInfo struct {
 	SPSID      int
 	Width      int
 	Height     int
+}
+
+func (s SPSInfo) ProfileName() string {
+	switch s.ProfileIDC {
+	case 66:
+		return "Baseline"
+	case 77:
+		return "Main"
+	case 88:
+		return "Extended"
+	case 100:
+		return "High"
+	case 110:
+		return "High 10"
+	case 122:
+		return "High 4:2:2"
+	case 144:
+		return "High 4:4:4"
+	default:
+		return "Unknown (" + strconv.Itoa(s.ProfileIDC) + ")"
+	}
+}
+
+func (s SPSInfo) LevelName() string {
+	switch s.LevelIDC {
+	case 9:
+		return "1b"
+	case 10:
+		return "1.0"
+	case 11:
+		return "1.1"
+	case 12:
+		return "1.2"
+	case 13:
+		return "1.3"
+	case 20:
+		return "2.0"
+	case 21:
+		return "2.1"
+	case 22:
+		return "2.2"
+	case 30:
+		return "3.0"
+	case 31:
+		return "3.1"
+	case 32:
+		return "3.2"
+	case 40:
+		return "4.0"
+	case 41:
+		return "4.1"
+	case 42:
+		return "4.2"
+	case 50:
+		return "5.0"
+	case 51:
+		return "5.1"
+	case 52:
+		return "5.2"
+	case 60:
+		return "6.0"
+	case 61:
+		return "6.1"
+	case 62:
+		return "6.2"
+	default:
+		return "Unknown (" + strconv.Itoa(s.LevelIDC) + ")"
+	}
 }
 
 func ParseSPSInfo(nalu []byte) (SPSInfo, error) {
