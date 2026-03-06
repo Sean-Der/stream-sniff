@@ -282,6 +282,47 @@
         status.textContent = message;
       }
 
+      function renderAnalyses() {
+        analysisList.textContent = "";
+
+        if (analysesById.size === 0) {
+          return;
+        }
+
+        for (const analysis of analysesById.values()) {
+          const item = document.createElement("li");
+          item.className = "analysis-item";
+
+          const idElement = document.createElement("p");
+          idElement.className = "analysis-item-id";
+          idElement.textContent = formatAnalysisId(analysis.id);
+
+          const messageElement = document.createElement("p");
+          messageElement.className = "analysis-item-message";
+          messageElement.textContent = analysis.message;
+
+          item.appendChild(idElement);
+          item.appendChild(messageElement);
+          analysisList.appendChild(item);
+        }
+      }
+
+      function formatAnalysisId(id) {
+        return id
+          .split("_")
+          .filter(Boolean)
+          .map((part) => part[0].toUpperCase() + part.slice(1))
+          .join(" ");
+      }
+
+      function applyAnalyses(payload) {
+        for (const analysis of payload) {
+          analysesById.set(analysis.id, { id: analysis.id, message: analysis.message });
+        }
+
+        renderAnalyses();
+      }
+
       function refreshBearerToken() {
         serverInput.value = new URL("/api/whip", window.location.href).toString();
         bearerTokenInput.value = generateBearerToken();
