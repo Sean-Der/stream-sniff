@@ -54,9 +54,12 @@
       .shell {
         width: min(42rem, 100%);
         margin: 72px auto 0;
+        display: flex;
+        flex-direction: column;
+        gap: 14px;
       }
 
-      main {
+      .panel {
         display: flex;
         flex-direction: column;
         gap: 12px;
@@ -65,6 +68,82 @@
         border-radius: 6px;
         background: var(--card-bg);
         box-shadow: var(--shadow);
+      }
+
+      .setup-panel {
+        overflow: hidden;
+        max-height: 1400px;
+        opacity: 1;
+        transform: translateY(0);
+        transition:
+          max-height 450ms ease,
+          opacity 300ms ease,
+          transform 300ms ease,
+          padding 300ms ease,
+          border-width 300ms ease;
+      }
+
+      .analysis-panel {
+        overflow: hidden;
+        max-height: 0;
+        opacity: 0;
+        transform: translateY(10px);
+        padding-top: 0;
+        padding-bottom: 0;
+        border-width: 0;
+        transition:
+          max-height 450ms ease,
+          opacity 300ms ease,
+          transform 300ms ease,
+          padding 300ms ease,
+          border-width 300ms ease;
+      }
+
+      .analysis-panel h2 {
+        margin: 0;
+        font-size: 1.35rem;
+        font-weight: 600;
+      }
+
+      .analysis-header {
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        gap: 12px;
+      }
+
+      .setup-toggle {
+        display: none;
+        background: rgba(255, 255, 255, 0.08);
+        color: var(--text-muted);
+        padding: 8px 12px;
+        font-size: 0.9rem;
+      }
+
+      .setup-toggle:hover {
+        background: rgba(255, 255, 255, 0.14);
+      }
+
+      .shell.analysis-started:not(.setup-open) .setup-panel {
+        max-height: 0;
+        opacity: 0;
+        transform: translateY(-8px);
+        padding-top: 0;
+        padding-bottom: 0;
+        border-width: 0;
+      }
+
+      .shell.analysis-started .analysis-panel {
+        max-height: 1400px;
+        opacity: 1;
+        transform: translateY(0);
+        padding-top: 32px;
+        padding-bottom: 32px;
+        border-width: 1px;
+      }
+
+      .shell.analysis-started .setup-toggle {
+        display: inline-flex;
       }
 
       h1 {
@@ -175,7 +254,7 @@
       }
 
       .analysis-list {
-        margin: 4px 0 0;
+        margin: 2px 0 0;
         padding: 0;
         list-style: none;
         display: flex;
@@ -202,10 +281,6 @@
         color: var(--text-muted);
       }
 
-      .analysis-empty {
-        color: var(--text-soft);
-      }
-
       @media (max-width: 680px) {
         body {
           padding: 16px;
@@ -215,15 +290,20 @@
           margin-top: 32px;
         }
 
-        main {
+        .panel {
           padding: 24px;
+        }
+
+        .shell.analysis-started .analysis-panel {
+          padding-top: 24px;
+          padding-bottom: 24px;
         }
       }
     </style>
   </head>
   <body>
     <div class="shell">
-      <main>
+      <main class="panel setup-panel">
         <h1>Stream Sniff</h1>
         <p>
           Stream Sniff analyzes your streaming video so you can get the best quality possible. It inspects what you send
@@ -258,14 +338,23 @@
         </div>
 
         <p class="status" id="status" aria-live="polite"></p>
-
-        <ul id="analysis-list" class="analysis-list"></ul>
       </main>
+
+      <section class="panel analysis-panel">
+        <div class="analysis-header">
+          <h2 id="analysis-heading">Analysis</h2>
+          <button class="setup-toggle" id="setup-toggle" type="button">Show Setup</button>
+        </div>
+        <ul id="analysis-list" class="analysis-list"></ul>
+      </section>
     </div>
     <script>
+      const shell = document.querySelector(".shell");
       const serverInput = document.getElementById("server");
       const bearerTokenInput = document.getElementById("bearer-token");
       const copyButton = document.getElementById("copy-button");
+      const setupToggle = document.getElementById("setup-toggle");
+      const analysisHeading = document.getElementById("analysis-heading");
       const status = document.getElementById("status");
       const analysisList = document.getElementById("analysis-list");
       const analysesById = new Map();
@@ -313,12 +402,26 @@
         }
 
         renderAnalyses();
+
+        if (analysesById.size > 0) {
+          shell.classList.add("analysis-started");
+          updateSetupToggleLabel();
+        }
+      }
+
+      function updateSetupToggleLabel() {
+        setupToggle.textContent = shell.classList.contains("setup-open") ? "Hide Setup" : "Show Setup";
+      }
+
+      function updateAnalysisHeading() {
+        analysisHeading.textContent = `Analysis of ${bearerTokenInput.value}`;
       }
 
       function refreshBearerToken() {
         serverInput.value = new URL("/api/whip", window.location.href).toString();
         bearerTokenInput.value = generateBearerToken();
         setStatus("");
+        updateAnalysisHeading();
       }
 
       async function createPeerConnection() {
@@ -350,6 +453,10 @@
       }
 
       copyButton.addEventListener("click", copyBearerToken);
+      setupToggle.addEventListener("click", () => {
+        shell.classList.toggle("setup-open");
+        updateSetupToggleLabel();
+      });
       refreshBearerToken();
       createPeerConnection();
     </script>
