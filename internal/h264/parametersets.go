@@ -148,6 +148,13 @@ type SPSInfo struct {
 	SPSID      int
 	Width      int
 	Height     int
+
+	Log2MaxFrameNumMinus4       int
+	PicOrderCntType             int
+	Log2MaxPicOrderCntLsbMinus4 int
+	DeltaPicOrderAlwaysZeroFlag bool
+	FrameMbsOnlyFlag            bool
+	SeparateColourPlaneFlag     bool
 }
 
 func (s SPSInfo) ProfileName() string {
@@ -303,7 +310,8 @@ func ParseSPSInfo(nalu []byte) (SPSInfo, error) {
 		}
 	}
 
-	if _, err = reader.readUE(); err != nil {
+	log2MaxFrameNumMinus4, err := reader.readUE()
+	if err != nil {
 		return SPSInfo{}, err
 	}
 
@@ -312,13 +320,16 @@ func ParseSPSInfo(nalu []byte) (SPSInfo, error) {
 		return SPSInfo{}, err
 	}
 
+	log2MaxPicOrderCntLsbMinus4 := uint(0)
+	deltaPicOrderAlwaysZeroFlag := uint(0)
+
 	switch picOrderCntType {
 	case 0:
-		if _, err = reader.readUE(); err != nil {
+		if log2MaxPicOrderCntLsbMinus4, err = reader.readUE(); err != nil {
 			return SPSInfo{}, err
 		}
 	case 1:
-		if _, err = reader.readBit(); err != nil {
+		if deltaPicOrderAlwaysZeroFlag, err = reader.readBit(); err != nil {
 			return SPSInfo{}, err
 		}
 
@@ -435,11 +446,17 @@ func ParseSPSInfo(nalu []byte) (SPSInfo, error) {
 	}
 
 	return SPSInfo{
-		ProfileIDC: int(profileIDC),
-		LevelIDC:   int(levelIDC),
-		SPSID:      int(spsID),
-		Width:      width,
-		Height:     height,
+		ProfileIDC:                  int(profileIDC),
+		LevelIDC:                    int(levelIDC),
+		SPSID:                       int(spsID),
+		Width:                       width,
+		Height:                      height,
+		Log2MaxFrameNumMinus4:       int(log2MaxFrameNumMinus4),
+		PicOrderCntType:             int(picOrderCntType),
+		Log2MaxPicOrderCntLsbMinus4: int(log2MaxPicOrderCntLsbMinus4),
+		DeltaPicOrderAlwaysZeroFlag: deltaPicOrderAlwaysZeroFlag == 1,
+		FrameMbsOnlyFlag:            frameMbsOnlyFlag == 1,
+		SeparateColourPlaneFlag:     separateColourPlaneFlag == 1,
 	}, nil
 }
 
@@ -447,6 +464,11 @@ type PPSInfo struct {
 	PPSID         int
 	SPSID         int
 	EntropyCoding string
+
+	EntropyCodingModeFlag                 bool
+	BottomFieldPicOrderInFramePresentFlag bool
+	RedundantPicCntPresentFlag            bool
+	PicInitQpMinus26                      int
 }
 
 func ParsePPSInfo(nalu []byte) (PPSInfo, error) {
@@ -471,16 +493,347 @@ func ParsePPSInfo(nalu []byte) (PPSInfo, error) {
 		return PPSInfo{}, err
 	}
 
+	bottomFieldPicOrderInFramePresentFlag, err := reader.readBit()
+	if err != nil {
+		return PPSInfo{}, err
+	}
+
+	numSliceGroupsMinus1, err := reader.readUE()
+	if err != nil {
+		return PPSInfo{}, err
+	}
+
+	if numSliceGroupsMinus1 != 0 {
+		return PPSInfo{}, errors.New("unsupported pps: num_slice_groups_minus1 != 0")
+	}
+
+	if _, err = reader.readUE(); err != nil {
+		return PPSInfo{}, err
+	}
+
+	if _, err = reader.readUE(); err != nil {
+		return PPSInfo{}, err
+	}
+
+	if _, err = reader.readBit(); err != nil {
+		return PPSInfo{}, err
+	}
+
+	if _, err = reader.readBits(2); err != nil {
+		return PPSInfo{}, err
+	}
+
+	picInitQpMinus26, err := reader.readSE()
+	if err != nil {
+		return PPSInfo{}, err
+	}
+
+	if _, err = reader.readSE(); err != nil {
+		return PPSInfo{}, err
+	}
+
+	if _, err = reader.readSE(); err != nil {
+		return PPSInfo{}, err
+	}
+
+	if _, err = reader.readBit(); err != nil {
+		return PPSInfo{}, err
+	}
+
+	if _, err = reader.readBit(); err != nil {
+		return PPSInfo{}, err
+	}
+
+	redundantPicCntPresentFlag, err := reader.readBit()
+	if err != nil {
+		return PPSInfo{}, err
+	}
+
 	entropyCoding := "CAVLC"
 	if entropyCodingModeFlag == 1 {
 		entropyCoding = "CABAC"
 	}
 
 	return PPSInfo{
-		PPSID:         int(ppsID),
-		SPSID:         int(spsID),
-		EntropyCoding: entropyCoding,
+		PPSID:                                 int(ppsID),
+		SPSID:                                 int(spsID),
+		EntropyCoding:                         entropyCoding,
+		EntropyCodingModeFlag:                 entropyCodingModeFlag == 1,
+		BottomFieldPicOrderInFramePresentFlag: bottomFieldPicOrderInFramePresentFlag == 1,
+		RedundantPicCntPresentFlag:            redundantPicCntPresentFlag == 1,
+		PicInitQpMinus26:                      picInitQpMinus26,
 	}, nil
+}
+
+func parseRefPicListModification(reader *bitReader, isBSlice bool) error {
+	refPicListModificationFlagL0, err := reader.readBit()
+	if err != nil {
+		return err
+	}
+
+	if refPicListModificationFlagL0 == 1 {
+		for {
+			modificationOfPicNumsIDC, readErr := reader.readUE()
+			if readErr != nil {
+				return readErr
+			}
+
+			if modificationOfPicNumsIDC == 3 {
+				break
+			}
+
+			if modificationOfPicNumsIDC == 0 || modificationOfPicNumsIDC == 1 {
+				if _, readErr = reader.readUE(); readErr != nil {
+					return readErr
+				}
+			} else if modificationOfPicNumsIDC == 2 {
+				if _, readErr = reader.readUE(); readErr != nil {
+					return readErr
+				}
+			}
+		}
+	}
+
+	if !isBSlice {
+		return nil
+	}
+
+	refPicListModificationFlagL1, err := reader.readBit()
+	if err != nil {
+		return err
+	}
+
+	if refPicListModificationFlagL1 == 1 {
+		for {
+			modificationOfPicNumsIDC, readErr := reader.readUE()
+			if readErr != nil {
+				return readErr
+			}
+
+			if modificationOfPicNumsIDC == 3 {
+				break
+			}
+
+			if modificationOfPicNumsIDC == 0 || modificationOfPicNumsIDC == 1 {
+				if _, readErr = reader.readUE(); readErr != nil {
+					return readErr
+				}
+			} else if modificationOfPicNumsIDC == 2 {
+				if _, readErr = reader.readUE(); readErr != nil {
+					return readErr
+				}
+			}
+		}
+	}
+
+	return nil
+}
+
+func parseDecRefPicMarking(reader *bitReader, isIDR bool) error {
+	if isIDR {
+		if _, err := reader.readBit(); err != nil {
+			return err
+		}
+
+		if _, err := reader.readBit(); err != nil {
+			return err
+		}
+
+		return nil
+	}
+
+	adaptiveRefPicMarkingModeFlag, err := reader.readBit()
+	if err != nil {
+		return err
+	}
+
+	if adaptiveRefPicMarkingModeFlag == 0 {
+		return nil
+	}
+
+	for {
+		memoryManagementControlOperation, readErr := reader.readUE()
+		if readErr != nil {
+			return readErr
+		}
+
+		if memoryManagementControlOperation == 0 {
+			return nil
+		}
+
+		switch memoryManagementControlOperation {
+		case 1, 3:
+			if _, readErr = reader.readUE(); readErr != nil {
+				return readErr
+			}
+		case 2:
+			if _, readErr = reader.readUE(); readErr != nil {
+				return readErr
+			}
+		}
+
+		switch memoryManagementControlOperation {
+		case 3, 6:
+			if _, readErr = reader.readUE(); readErr != nil {
+				return readErr
+			}
+		case 4:
+			if _, readErr = reader.readUE(); readErr != nil {
+				return readErr
+			}
+		}
+	}
+}
+
+func ParseSliceQP(nalu []byte, spsByID map[int]SPSInfo, ppsByID map[int]PPSInfo) (int, bool) {
+	if len(nalu) < 2 {
+		return 0, false
+	}
+
+	naluType := nalu[0] & 0x1F
+	if naluType != 1 && naluType != 5 {
+		return 0, false
+	}
+
+	nalRefIDC := (nalu[0] >> 5) & 0x03
+	reader := &bitReader{data: rbspFromNALU(nalu)}
+
+	if _, err := reader.readUE(); err != nil {
+		return 0, false
+	}
+
+	sliceType, err := reader.readUE()
+	if err != nil {
+		return 0, false
+	}
+
+	ppsIDRaw, err := reader.readUE()
+	if err != nil {
+		return 0, false
+	}
+
+	pps, ok := ppsByID[int(ppsIDRaw)]
+	if !ok {
+		return 0, false
+	}
+
+	sps, ok := spsByID[pps.SPSID]
+	if !ok {
+		return 0, false
+	}
+
+	if sps.SeparateColourPlaneFlag {
+		if _, err = reader.readBits(2); err != nil {
+			return 0, false
+		}
+	}
+
+	frameNumBitCount := sps.Log2MaxFrameNumMinus4 + 4
+	if _, err = reader.readBits(frameNumBitCount); err != nil {
+		return 0, false
+	}
+
+	fieldPicFlag := uint(0)
+	if !sps.FrameMbsOnlyFlag {
+		if fieldPicFlag, err = reader.readBit(); err != nil {
+			return 0, false
+		}
+
+		if fieldPicFlag == 1 {
+			if _, err = reader.readBit(); err != nil {
+				return 0, false
+			}
+		}
+	}
+
+	if naluType == 5 {
+		if _, err = reader.readUE(); err != nil {
+			return 0, false
+		}
+	}
+
+	if sps.PicOrderCntType == 0 {
+		if _, err = reader.readBits(sps.Log2MaxPicOrderCntLsbMinus4 + 4); err != nil {
+			return 0, false
+		}
+
+		if pps.BottomFieldPicOrderInFramePresentFlag && fieldPicFlag == 0 {
+			if _, err = reader.readSE(); err != nil {
+				return 0, false
+			}
+		}
+	} else if sps.PicOrderCntType == 1 && !sps.DeltaPicOrderAlwaysZeroFlag {
+		if _, err = reader.readSE(); err != nil {
+			return 0, false
+		}
+
+		if pps.BottomFieldPicOrderInFramePresentFlag && fieldPicFlag == 0 {
+			if _, err = reader.readSE(); err != nil {
+				return 0, false
+			}
+		}
+	}
+
+	if pps.RedundantPicCntPresentFlag {
+		if _, err = reader.readUE(); err != nil {
+			return 0, false
+		}
+	}
+
+	sliceTypeMod5 := sliceType % 5
+	isPSPSlice := sliceTypeMod5 == 0 || sliceTypeMod5 == 1 || sliceTypeMod5 == 3
+	isBSlice := sliceTypeMod5 == 1
+	isIOrSISlice := sliceTypeMod5 == 2 || sliceTypeMod5 == 4
+
+	if isBSlice {
+		if _, err = reader.readBit(); err != nil {
+			return 0, false
+		}
+	}
+
+	if isPSPSlice {
+		numRefIdxActiveOverrideFlag, readErr := reader.readBit()
+		if readErr != nil {
+			return 0, false
+		}
+
+		if numRefIdxActiveOverrideFlag == 1 {
+			if _, readErr = reader.readUE(); readErr != nil {
+				return 0, false
+			}
+
+			if isBSlice {
+				if _, readErr = reader.readUE(); readErr != nil {
+					return 0, false
+				}
+			}
+		}
+	}
+
+	if isPSPSlice {
+		if err = parseRefPicListModification(reader, isBSlice); err != nil {
+			return 0, false
+		}
+	}
+
+	if nalRefIDC != 0 {
+		if err = parseDecRefPicMarking(reader, naluType == 5); err != nil {
+			return 0, false
+		}
+	}
+
+	if pps.EntropyCodingModeFlag && !isIOrSISlice {
+		if _, err = reader.readUE(); err != nil {
+			return 0, false
+		}
+	}
+
+	sliceQPDelta, err := reader.readSE()
+	if err != nil {
+		return 0, false
+	}
+
+	return 26 + pps.PicInitQpMinus26 + sliceQPDelta, true
 }
 
 func findAnnexBStartCode(payload []byte, offset int) (int, int) {

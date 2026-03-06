@@ -26,6 +26,10 @@ func readAndLogRTP(bearerToken, sessionID string, remoteTrack *webrtc.TrackRemot
 	trackStartedAt := time.Now()
 	lastBitrateEmissionAt := trackStartedAt
 	totalBits := 0
+	totalQP := 0
+	qpSamples := 0
+	spsByID := map[int]internalh264.SPSInfo{}
+	ppsByID := map[int]internalh264.PPSInfo{}
 
 	for {
 		packet, _, err := remoteTrack.ReadRTP()
@@ -46,15 +50,26 @@ func readAndLogRTP(bearerToken, sessionID string, remoteTrack *webrtc.TrackRemot
 			elapsedSeconds := time.Since(trackStartedAt).Seconds()
 			if elapsedSeconds > 0 {
 				averageBitsPerSecond := float64(totalBits) / elapsedSeconds
-				writeAnalyzeMessage(
-					bearerToken,
-					[]analysisItem{
+				analyses := []analysisItem{
 						{
 							ID:      "average_bitrate",
-							Label:   "information",
-							Message: fmt.Sprintf("Average video bitrate is %s.", formatBitrate(averageBitsPerSecond)),
+							Label:   "Average Bitrate",
+							Message: formatBitrate(averageBitsPerSecond),
 						},
-					},
+				}
+
+					if qpSamples > 0 {
+						averageQP := float64(totalQP) / float64(qpSamples)
+						analyses = append(analyses, analysisItem{
+							ID:      "average_qp",
+							Label:   "Average Quantization Parameter (QP)",
+							Message: fmt.Sprintf("%.1f", averageQP),
+						})
+					}
+
+				writeAnalyzeMessage(
+					bearerToken,
+					analyses,
 				)
 			}
 			lastBitrateEmissionAt = time.Now()
@@ -78,22 +93,38 @@ func readAndLogRTP(bearerToken, sessionID string, remoteTrack *webrtc.TrackRemot
 					log.Printf("bearerToken=%s session=%s sps-parse err=%v", bearerToken, sessionID, parseErr)
 					continue
 				}
+				spsByID[sps.SPSID] = sps
 
 				writeAnalyzeMessage(
 					bearerToken,
 					[]analysisItem{
-						{
-							ID:      "resolution",
-							Label:   "information",
-							Message: fmt.Sprintf("Your video resolution is %dx%d.", sps.Width, sps.Height),
-						},
-						{
-							ID:      "profile_level",
-							Label:   "information",
-							Message: fmt.Sprintf("Video format: H.264 %s, level %s.", sps.ProfileName(), sps.LevelName()),
-						},
+							{
+								ID:      "resolution",
+								Label:   "Resolution",
+								Message: fmt.Sprintf("%dx%d", sps.Width, sps.Height),
+							},
+							{
+								ID:      "profile_level",
+								Label:   "Profile Level",
+								Message: fmt.Sprintf("H.264 %s, level %s.", sps.ProfileName(), sps.LevelName()),
+							},
 					},
 				)
+			case 8:
+				pps, parseErr := internalh264.ParsePPSInfo(nalu)
+				if parseErr != nil {
+					log.Printf("bearerToken=%s session=%s pps-parse err=%v", bearerToken, sessionID, parseErr)
+					continue
+				}
+				ppsByID[pps.PPSID] = pps
+			case 1, 5:
+				qp, ok := internalh264.ParseSliceQP(nalu, spsByID, ppsByID)
+				if !ok {
+					continue
+				}
+
+				totalQP += qp
+				qpSamples++
 			}
 		}
 	}

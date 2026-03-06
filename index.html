@@ -295,7 +295,7 @@
 
           const idElement = document.createElement("p");
           idElement.className = "analysis-item-id";
-          idElement.textContent = formatAnalysisId(analysis.id);
+          idElement.textContent = analysis.label;
 
           const messageElement = document.createElement("p");
           messageElement.className = "analysis-item-message";
@@ -307,17 +307,9 @@
         }
       }
 
-      function formatAnalysisId(id) {
-        return id
-          .split("_")
-          .filter(Boolean)
-          .map((part) => part[0].toUpperCase() + part.slice(1))
-          .join(" ");
-      }
-
       function applyAnalyses(payload) {
         for (const analysis of payload) {
-          analysesById.set(analysis.id, { id: analysis.id, message: analysis.message });
+          analysesById.set(analysis.id, { id: analysis.id, label: analysis.label, message: analysis.message });
         }
 
         renderAnalyses();
