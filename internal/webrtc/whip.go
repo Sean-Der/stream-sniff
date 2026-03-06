@@ -3,56 +3,75 @@ package webrtc
 import (
 	"errors"
 	"io"
+	"log"
 
+	internalh264 "stream-sniff/internal/h264"
+
+	"github.com/pion/rtp/codecs"
 	"github.com/pion/webrtc/v4"
 )
 
 func readAndLogRTP(bearerToken, sessionID string, remoteTrack *webrtc.TrackRemote) {
-	writeAnalyzeMessage(
-		bearerToken,
-		"bearerToken=%s session=%s track-start kind=%s id=%s rid=%q stream=%s codec=%s payload=%d clock=%d ssrc=%d",
-		bearerToken,
-		sessionID,
-		remoteTrack.Kind().String(),
-		remoteTrack.ID(),
-		remoteTrack.RID(),
-		remoteTrack.StreamID(),
-		remoteTrack.Codec().MimeType,
-		remoteTrack.Codec().PayloadType,
-		remoteTrack.Codec().ClockRate,
-		remoteTrack.SSRC(),
-	)
+	h264Packet := &codecs.H264Packet{}
 
 	for {
 		packet, _, err := remoteTrack.ReadRTP()
 		switch {
 		case errors.Is(err, io.EOF):
-			writeAnalyzeMessage(bearerToken, "bearerToken=%s session=%s track-end kind=%s err=eof", bearerToken, sessionID, remoteTrack.Kind().String())
 			return
 		case err != nil:
-			writeAnalyzeMessage(
-				bearerToken,
-				"bearerToken=%s session=%s track-end kind=%s err=%v",
-				bearerToken,
-				sessionID,
-				remoteTrack.Kind().String(),
-				err,
-			)
+			log.Printf("bearerToken=%s session=%s track-end kind=%s err=%v", bearerToken, sessionID, remoteTrack.Kind().String(), err)
 			return
 		}
 
-		writeAnalyzeMessage(
-			bearerToken,
-			"bearerToken=%s session=%s kind=%s seq=%d ts=%d marker=%t payload=%d ssrc=%d",
-			bearerToken,
-			sessionID,
-			remoteTrack.Kind().String(),
-			packet.SequenceNumber,
-			packet.Timestamp,
-			packet.Marker,
-			len(packet.Payload),
-			packet.SSRC,
-		)
+		if remoteTrack.Codec().MimeType != webrtc.MimeTypeH264 {
+			continue
+		}
+
+		unmarshaledPayload, unmarshalErr := h264Packet.Unmarshal(packet.Payload)
+		if unmarshalErr != nil || len(unmarshaledPayload) == 0 {
+			continue
+		}
+
+		for _, nalu := range internalh264.SplitAnnexBNALUs(unmarshaledPayload) {
+			if len(nalu) == 0 {
+				continue
+			}
+
+			naluType := nalu[0] & 0x1F
+			switch naluType {
+			case 7:
+				sps, parseErr := internalh264.ParseSPSInfo(nalu)
+				if parseErr != nil {
+					log.Printf("bearerToken=%s session=%s sps-parse err=%v", bearerToken, sessionID, parseErr)
+					continue
+				}
+
+				writeAnalyzeMessage(
+					bearerToken,
+					"sps profile_idc=%d level_idc=%d sps_id=%d width=%d height=%d",
+					sps.ProfileIDC,
+					sps.LevelIDC,
+					sps.SPSID,
+					sps.Width,
+					sps.Height,
+				)
+			case 8:
+				pps, parseErr := internalh264.ParsePPSInfo(nalu)
+				if parseErr != nil {
+					log.Printf("bearerToken=%s session=%s pps-parse err=%v", bearerToken, sessionID, parseErr)
+					continue
+				}
+
+				writeAnalyzeMessage(
+					bearerToken,
+					"pps pps_id=%d sps_id=%d entropy=%s",
+					pps.PPSID,
+					pps.SPSID,
+					pps.EntropyCoding,
+				)
+			}
+		}
 	}
 }
 
