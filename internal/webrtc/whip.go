@@ -45,6 +45,17 @@ func colorForBitsPerPixelPerFrame(bitsPerPixelPerFrame float64) string {
 	}
 }
 
+func colorForAverageKeyframeInterval(seconds float64) string {
+	switch {
+	case seconds < 2:
+		return "rgba(34, 197, 94, 0.22)"
+	case seconds < 5:
+		return "rgba(250, 204, 21, 0.22)"
+	default:
+		return "rgba(239, 68, 68, 0.22)"
+	}
+}
+
 func readAndLogRTP(bearerToken, sessionID string, remoteTrack *webrtc.TrackRemote) {
 	h264Packet := &codecs.H264Packet{}
 	trackStartedAt := time.Now()
@@ -57,6 +68,9 @@ func readAndLogRTP(bearerToken, sessionID string, remoteTrack *webrtc.TrackRemot
 	qpSamples := 0
 	currentWidth := 0
 	currentHeight := 0
+	lastKeyframeAt := time.Time{}
+	totalKeyframeIntervalSeconds := 0.0
+	keyframeIntervals := 0
 	spsByID := map[int]internalh264.SPSInfo{}
 	ppsByID := map[int]internalh264.PPSInfo{}
 
@@ -114,6 +128,16 @@ func readAndLogRTP(bearerToken, sessionID string, remoteTrack *webrtc.TrackRemot
 					})
 				}
 
+				if keyframeIntervals > 0 {
+					averageKeyframeInterval := totalKeyframeIntervalSeconds / float64(keyframeIntervals)
+					analyses = append(analyses, analysisItem{
+						ID:      "average_time_between_keyframes",
+						Label:   "Average Time Between Keyframes",
+						Message: fmt.Sprintf("%.1fs", averageKeyframeInterval),
+						Color:   colorForAverageKeyframeInterval(averageKeyframeInterval),
+					})
+				}
+
 				writeAnalyzeMessage(
 					bearerToken,
 					analyses,
@@ -167,6 +191,15 @@ func readAndLogRTP(bearerToken, sessionID string, remoteTrack *webrtc.TrackRemot
 				}
 				ppsByID[pps.PPSID] = pps
 			case 1, 5:
+				if naluType == 5 {
+					now := time.Now()
+					if !lastKeyframeAt.IsZero() {
+						totalKeyframeIntervalSeconds += now.Sub(lastKeyframeAt).Seconds()
+						keyframeIntervals++
+					}
+					lastKeyframeAt = now
+				}
+
 				qp, ok := internalh264.ParseSliceQP(nalu, spsByID, ppsByID)
 				if !ok {
 					continue
