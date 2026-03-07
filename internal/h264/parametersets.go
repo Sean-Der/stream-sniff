@@ -685,6 +685,30 @@ func parseDecRefPicMarking(reader *bitReader, isIDR bool) error {
 	}
 }
 
+func IsBSlice(nalu []byte) bool {
+	if len(nalu) < 2 {
+		return false
+	}
+
+	naluType := nalu[0] & 0x1F
+	if naluType != 1 && naluType != 5 {
+		return false
+	}
+
+	reader := &bitReader{data: rbspFromNALU(nalu)}
+
+	if _, err := reader.readUE(); err != nil {
+		return false
+	}
+
+	sliceType, err := reader.readUE()
+	if err != nil {
+		return false
+	}
+
+	return sliceType%5 == 1
+}
+
 func ParseSliceQP(nalu []byte, spsByID map[int]SPSInfo, ppsByID map[int]PPSInfo) (int, bool) {
 	if len(nalu) < 2 {
 		return 0, false

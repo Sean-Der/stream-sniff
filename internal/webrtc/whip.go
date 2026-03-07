@@ -71,6 +71,7 @@ func readAndLogRTP(bearerToken, sessionID string, remoteTrack *webrtc.TrackRemot
 	lastKeyframeAt := time.Time{}
 	totalKeyframeIntervalSeconds := 0.0
 	keyframeIntervals := 0
+	bFramesDetected := false
 	spsByID := map[int]internalh264.SPSInfo{}
 	ppsByID := map[int]internalh264.PPSInfo{}
 
@@ -138,6 +139,15 @@ func readAndLogRTP(bearerToken, sessionID string, remoteTrack *webrtc.TrackRemot
 					})
 				}
 
+				if bFramesDetected {
+					analyses = append(analyses, analysisItem{
+						ID:      "b_frames_detected",
+						Label:   "B-Frames detected",
+						Message: "B-Frames detected",
+						Color:   "rgba(239, 68, 68, 0.22)",
+					})
+				}
+
 				writeAnalyzeMessage(
 					bearerToken,
 					analyses,
@@ -191,6 +201,21 @@ func readAndLogRTP(bearerToken, sessionID string, remoteTrack *webrtc.TrackRemot
 				}
 				ppsByID[pps.PPSID] = pps
 			case 1, 5:
+				if !bFramesDetected && internalh264.IsBSlice(nalu) {
+					bFramesDetected = true
+					writeAnalyzeMessage(
+						bearerToken,
+						[]analysisItem{
+							{
+								ID:      "b_frames_detected",
+								Label:   "B-Frames detected",
+								Message: "B-Frames detected",
+								Color:   "rgba(239, 68, 68, 0.22)",
+							},
+						},
+					)
+				}
+
 				if naluType == 5 {
 					now := time.Now()
 					if !lastKeyframeAt.IsZero() {
