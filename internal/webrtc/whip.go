@@ -32,13 +32,31 @@ func colorForAverageQP(averageQP float64) string {
 	}
 }
 
+func colorForBitsPerPixelPerFrame(bitsPerPixelPerFrame float64) string {
+	switch {
+	case bitsPerPixelPerFrame < 0.05:
+		return "rgba(239, 68, 68, 0.22)"
+	case bitsPerPixelPerFrame < 0.10:
+		return "rgba(249, 115, 22, 0.22)"
+	case bitsPerPixelPerFrame < 0.20:
+		return "rgba(250, 204, 21, 0.22)"
+	default:
+		return "rgba(34, 197, 94, 0.22)"
+	}
+}
+
 func readAndLogRTP(bearerToken, sessionID string, remoteTrack *webrtc.TrackRemote) {
 	h264Packet := &codecs.H264Packet{}
 	trackStartedAt := time.Now()
 	lastBitrateEmissionAt := trackStartedAt
 	totalBits := 0
+	totalFrames := 0
+	hasLastTimestamp := false
+	lastTimestamp := uint32(0)
 	totalQP := 0
 	qpSamples := 0
+	currentWidth := 0
+	currentHeight := 0
 	spsByID := map[int]internalh264.SPSInfo{}
 	ppsByID := map[int]internalh264.PPSInfo{}
 
@@ -54,6 +72,12 @@ func readAndLogRTP(bearerToken, sessionID string, remoteTrack *webrtc.TrackRemot
 
 		if remoteTrack.Codec().MimeType != webrtc.MimeTypeH264 {
 			continue
+		}
+
+		if !hasLastTimestamp || packet.Timestamp != lastTimestamp {
+			totalFrames++
+			hasLastTimestamp = true
+			lastTimestamp = packet.Timestamp
 		}
 
 		totalBits += len(packet.Payload) * 8
@@ -76,6 +100,17 @@ func readAndLogRTP(bearerToken, sessionID string, remoteTrack *webrtc.TrackRemot
 						Label:   "Average Quantization Parameter (QP)",
 						Message: fmt.Sprintf("%.1f", averageQP),
 						Color:   colorForAverageQP(averageQP),
+					})
+				}
+
+				averageFPS := float64(totalFrames) / elapsedSeconds
+				if currentWidth > 0 && currentHeight > 0 && averageFPS > 0 {
+					bitsPerPixelPerFrame := averageBitsPerSecond / (float64(currentWidth*currentHeight) * averageFPS)
+					analyses = append(analyses, analysisItem{
+						ID:      "bits_per_pixel_per_frame",
+						Label:   "Bits Per Pixel Per Frame",
+						Message: fmt.Sprintf("%.3f", bitsPerPixelPerFrame),
+						Color:   colorForBitsPerPixelPerFrame(bitsPerPixelPerFrame),
 					})
 				}
 
@@ -106,6 +141,8 @@ func readAndLogRTP(bearerToken, sessionID string, remoteTrack *webrtc.TrackRemot
 					continue
 				}
 				spsByID[sps.SPSID] = sps
+				currentWidth = sps.Width
+				currentHeight = sps.Height
 
 				writeAnalyzeMessage(
 					bearerToken,
