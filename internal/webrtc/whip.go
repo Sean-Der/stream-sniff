@@ -21,6 +21,17 @@ func formatBitrate(bitsPerSecond float64) string {
 	return fmt.Sprintf("%.1f kbps", bitsPerSecond/1_000)
 }
 
+func colorForAverageQP(averageQP float64) string {
+	switch {
+	case averageQP <= 28:
+		return "rgba(34, 197, 94, 0.22)"
+	case averageQP <= 35:
+		return "rgba(249, 115, 22, 0.22)"
+	default:
+		return "rgba(239, 68, 68, 0.22)"
+	}
+}
+
 func readAndLogRTP(bearerToken, sessionID string, remoteTrack *webrtc.TrackRemote) {
 	h264Packet := &codecs.H264Packet{}
 	trackStartedAt := time.Now()
@@ -51,21 +62,22 @@ func readAndLogRTP(bearerToken, sessionID string, remoteTrack *webrtc.TrackRemot
 			if elapsedSeconds > 0 {
 				averageBitsPerSecond := float64(totalBits) / elapsedSeconds
 				analyses := []analysisItem{
-						{
-							ID:      "average_bitrate",
-							Label:   "Average Bitrate",
-							Message: formatBitrate(averageBitsPerSecond),
-						},
+					{
+						ID:      "average_bitrate",
+						Label:   "Average Bitrate",
+						Message: formatBitrate(averageBitsPerSecond),
+					},
 				}
 
-					if qpSamples > 0 {
-						averageQP := float64(totalQP) / float64(qpSamples)
-						analyses = append(analyses, analysisItem{
-							ID:      "average_qp",
-							Label:   "Average Quantization Parameter (QP)",
-							Message: fmt.Sprintf("%.1f", averageQP),
-						})
-					}
+				if qpSamples > 0 {
+					averageQP := float64(totalQP) / float64(qpSamples)
+					analyses = append(analyses, analysisItem{
+						ID:      "average_qp",
+						Label:   "Average Quantization Parameter (QP)",
+						Message: fmt.Sprintf("%.1f", averageQP),
+						Color:   colorForAverageQP(averageQP),
+					})
+				}
 
 				writeAnalyzeMessage(
 					bearerToken,
@@ -98,16 +110,16 @@ func readAndLogRTP(bearerToken, sessionID string, remoteTrack *webrtc.TrackRemot
 				writeAnalyzeMessage(
 					bearerToken,
 					[]analysisItem{
-							{
-								ID:      "resolution",
-								Label:   "Resolution",
-								Message: fmt.Sprintf("%dx%d", sps.Width, sps.Height),
-							},
-							{
-								ID:      "profile_level",
-								Label:   "Profile Level",
-								Message: fmt.Sprintf("H.264 %s, level %s.", sps.ProfileName(), sps.LevelName()),
-							},
+						{
+							ID:      "resolution",
+							Label:   "Resolution",
+							Message: fmt.Sprintf("%dx%d", sps.Width, sps.Height),
+						},
+						{
+							ID:      "profile_level",
+							Label:   "Profile Level",
+							Message: fmt.Sprintf("H.264 %s, level %s.", sps.ProfileName(), sps.LevelName()),
+						},
 					},
 				)
 			case 8:

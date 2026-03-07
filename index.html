@@ -389,6 +389,9 @@
           const messageElement = document.createElement("p");
           messageElement.className = "analysis-item-message";
           messageElement.textContent = analysis.message;
+          if (analysis.color) {
+            item.style.backgroundColor = analysis.color;
+          }
 
           item.appendChild(idElement);
           item.appendChild(messageElement);
@@ -398,7 +401,7 @@
 
       function applyAnalyses(payload) {
         for (const analysis of payload) {
-          analysesById.set(analysis.id, { id: analysis.id, label: analysis.label, message: analysis.message });
+          analysesById.set(analysis.id, { id: analysis.id, label: analysis.label, message: analysis.message, color: analysis.color });
         }
 
         renderAnalyses();

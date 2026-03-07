@@ -17,6 +17,7 @@ type analysisItem struct {
 	ID      string `json:"id"`
 	Label   string `json:"label"`
 	Message string `json:"message"`
+	Color   string `json:"color,omitempty"`
 }
 
 func writeAnalyzeMessage(bearerToken string, analyses []analysisItem) {
