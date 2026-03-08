@@ -64,6 +64,10 @@ func readAndLogRTP(bearerToken, sessionID string, remoteTrack *webrtc.TrackRemot
 	totalFrames := 0
 	hasLastTimestamp := false
 	lastTimestamp := uint32(0)
+	currentFrameSliceClass := ""
+	iFrames := 0
+	pFrames := 0
+	bFrames := 0
 	totalQP := 0
 	qpSamples := 0
 	currentWidth := 0
@@ -90,9 +94,21 @@ func readAndLogRTP(bearerToken, sessionID string, remoteTrack *webrtc.TrackRemot
 		}
 
 		if !hasLastTimestamp || packet.Timestamp != lastTimestamp {
+			if hasLastTimestamp {
+				switch currentFrameSliceClass {
+				case "I":
+					iFrames++
+				case "P":
+					pFrames++
+				case "B":
+					bFrames++
+				}
+			}
+
 			totalFrames++
 			hasLastTimestamp = true
 			lastTimestamp = packet.Timestamp
+			currentFrameSliceClass = ""
 		}
 
 		totalBits += len(packet.Payload) * 8
@@ -136,6 +152,31 @@ func readAndLogRTP(bearerToken, sessionID string, remoteTrack *webrtc.TrackRemot
 						Label:   "Average Time Between Keyframes",
 						Message: fmt.Sprintf("%.1fs", averageKeyframeInterval),
 						Color:   colorForAverageKeyframeInterval(averageKeyframeInterval),
+					})
+				}
+
+				displayIFrames := iFrames
+				displayPFrames := pFrames
+				displayBFrames := bFrames
+				switch currentFrameSliceClass {
+				case "I":
+					displayIFrames++
+				case "P":
+					displayPFrames++
+				case "B":
+					displayBFrames++
+				}
+				totalClassifiedFrames := displayIFrames + displayPFrames + displayBFrames
+				if totalClassifiedFrames > 0 {
+					analyses = append(analyses, analysisItem{
+						ID:    "frame_type_distribution",
+						Label: "Frame Type Distribution",
+						Message: fmt.Sprintf(
+							"I: %.1f%%, P: %.1f%%, B: %.1f%%",
+							(float64(displayIFrames)/float64(totalClassifiedFrames))*100,
+							(float64(displayPFrames)/float64(totalClassifiedFrames))*100,
+							(float64(displayBFrames)/float64(totalClassifiedFrames))*100,
+						),
 					})
 				}
 
@@ -201,19 +242,31 @@ func readAndLogRTP(bearerToken, sessionID string, remoteTrack *webrtc.TrackRemot
 				}
 				ppsByID[pps.PPSID] = pps
 			case 1, 5:
-				if !bFramesDetected && internalh264.IsBSlice(nalu) {
-					bFramesDetected = true
-					writeAnalyzeMessage(
-						bearerToken,
-						[]analysisItem{
-							{
-								ID:      "b_frames_detected",
-								Label:   "B-Frames detected",
-								Message: "B-Frames detected",
-								Color:   "rgba(239, 68, 68, 0.22)",
+				sliceClass, hasSliceClass := internalh264.ParseSliceClass(nalu)
+				if hasSliceClass {
+					switch {
+					case currentFrameSliceClass == "":
+						currentFrameSliceClass = sliceClass
+					case sliceClass == "B":
+						currentFrameSliceClass = "B"
+					case sliceClass == "I" && currentFrameSliceClass == "P":
+						currentFrameSliceClass = "I"
+					}
+
+					if !bFramesDetected && sliceClass == "B" {
+						bFramesDetected = true
+						writeAnalyzeMessage(
+							bearerToken,
+							[]analysisItem{
+								{
+									ID:      "b_frames_detected",
+									Label:   "B-Frames detected",
+									Message: "B-Frames detected",
+									Color:   "rgba(239, 68, 68, 0.22)",
+								},
 							},
-						},
-					)
+						)
+					}
 				}
 
 				if naluType == 5 {
