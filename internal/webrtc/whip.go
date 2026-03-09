@@ -56,6 +56,14 @@ func colorForAverageKeyframeInterval(seconds float64) string {
 	}
 }
 
+func recommendationItem(id, message string) analysisItem {
+	return analysisItem{
+		ID:      id,
+		Message: message,
+		Kind:    "recommendation",
+	}
+}
+
 func readAndLogRTP(bearerToken, sessionID string, remoteTrack *webrtc.TrackRemote) {
 	h264Packet := &codecs.H264Packet{}
 	trackStartedAt := time.Now()
@@ -123,6 +131,7 @@ func readAndLogRTP(bearerToken, sessionID string, remoteTrack *webrtc.TrackRemot
 						Message: formatBitrate(averageBitsPerSecond),
 					},
 				}
+				recommendations := []analysisItem{}
 
 				if qpSamples > 0 {
 					averageQP := float64(totalQP) / float64(qpSamples)
@@ -132,6 +141,24 @@ func readAndLogRTP(bearerToken, sessionID string, remoteTrack *webrtc.TrackRemot
 						Message: fmt.Sprintf("%.1f", averageQP),
 						Color:   colorForAverageQP(averageQP),
 					})
+
+					switch {
+					case averageQP > 35:
+						recommendations = append(recommendations, recommendationItem(
+							"rec_compression",
+							"Compression looks strong. Increase bitrate, lower resolution or increase H264 profile to preserve detail.",
+						))
+					case averageQP > 28:
+						recommendations = append(recommendations, recommendationItem(
+							"rec_compression",
+							"Compression is noticeable. Increase bitrate, lower resolution or increase H264 profile to preserve detail.",
+						))
+					default:
+						recommendations = append(recommendations, recommendationItem(
+							"rec_compression",
+							"",
+						))
+					}
 				}
 
 				averageFPS := float64(totalFrames) / elapsedSeconds
@@ -153,6 +180,19 @@ func readAndLogRTP(bearerToken, sessionID string, remoteTrack *webrtc.TrackRemot
 						Message: fmt.Sprintf("%.1fs", averageKeyframeInterval),
 						Color:   colorForAverageKeyframeInterval(averageKeyframeInterval),
 					})
+
+					switch {
+					case averageKeyframeInterval >= 5:
+						recommendations = append(recommendations, recommendationItem(
+							"rec_keyframe_interval_shorter",
+							"Keyframes are far apart, set to a lower value so your stream starts faster.",
+						))
+					case averageKeyframeInterval >= 2:
+						recommendations = append(recommendations, recommendationItem(
+							"rec_keyframe_interval_target",
+							"Keyframes are far apart, set to a lower value so your stream starts faster.",
+						))
+					}
 				}
 
 				displayIFrames := iFrames
@@ -187,8 +227,13 @@ func readAndLogRTP(bearerToken, sessionID string, remoteTrack *webrtc.TrackRemot
 						Message: "B-Frames detected",
 						Color:   "rgba(239, 68, 68, 0.22)",
 					})
+					recommendations = append(recommendations, recommendationItem(
+						"rec_disable_b_frames",
+						"B-Frames are enabled. Disable B-Frames when you need lower latency.",
+					))
 				}
 
+				analyses = append(analyses, recommendations...)
 				writeAnalyzeMessage(
 					bearerToken,
 					analyses,
@@ -264,6 +309,10 @@ func readAndLogRTP(bearerToken, sessionID string, remoteTrack *webrtc.TrackRemot
 									Message: "B-Frames detected",
 									Color:   "rgba(239, 68, 68, 0.22)",
 								},
+								recommendationItem(
+									"rec_disable_b_frames",
+									"B-Frames are enabled. Disable B-Frames when you need lower latency.",
+								),
 							},
 						)
 					}

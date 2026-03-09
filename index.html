@@ -108,8 +108,11 @@
       .analysis-header {
         display: flex;
         align-items: center;
-        justify-content: space-between;
-        gap: 12px;
+      }
+
+      .analysis-panel-top {
+        display: flex;
+        justify-content: flex-end;
       }
 
       .setup-toggle {
@@ -262,6 +265,22 @@
         gap: 8px;
       }
 
+      .recommendations-title {
+        margin: 0;
+        font-size: 1.35rem;
+        font-weight: 600;
+      }
+
+      .recommendations-list {
+        margin: 0;
+        padding-left: 18px;
+        color: var(--text-muted);
+      }
+
+      .recommendations-list li + li {
+        margin-top: 8px;
+      }
+
       .analysis-item {
         border: 1px solid var(--card-border);
         border-radius: 4px;
@@ -341,9 +360,15 @@
       </main>
 
       <section class="panel analysis-panel">
+        <div class="analysis-panel-top">
+          <button class="setup-toggle" id="setup-toggle" type="button">Show Setup</button>
+        </div>
+
+        <h2 class="recommendations-title">Recommendations</h2>
+        <ul id="recommendations-list" class="recommendations-list"></ul>
+
         <div class="analysis-header">
           <h2 id="analysis-heading">Analysis</h2>
-          <button class="setup-toggle" id="setup-toggle" type="button">Show Setup</button>
         </div>
         <ul id="analysis-list" class="analysis-list"></ul>
       </section>
@@ -357,7 +382,9 @@
       const analysisHeading = document.getElementById("analysis-heading");
       const status = document.getElementById("status");
       const analysisList = document.getElementById("analysis-list");
+      const recommendationsList = document.getElementById("recommendations-list");
       const analysesById = new Map();
+      const recommendationsById = new Map();
 
       function randomChunk() {
         return Math.random().toString(36).slice(2, 7);
@@ -399,14 +426,39 @@
         }
       }
 
+      function renderRecommendations() {
+        recommendationsList.textContent = "";
+
+        for (const recommendation of recommendationsById.values()) {
+          const message = typeof recommendation.message === "string" ? recommendation.message.trim() : "";
+          if (message.length === 0) {
+            continue;
+          }
+
+          const item = document.createElement("li");
+          item.textContent = message;
+          recommendationsList.appendChild(item);
+        }
+      }
+
       function applyAnalyses(payload) {
         for (const analysis of payload) {
-          analysesById.set(analysis.id, { id: analysis.id, label: analysis.label, message: analysis.message, color: analysis.color });
+          if (analysis.kind === "recommendation") {
+            const message = analysis.message;
+            if (!message) {
+              recommendationsById.delete(analysis.id);
+            } else {
+              recommendationsById.set(analysis.id, { id: analysis.id, message });
+            }
+          } else {
+            analysesById.set(analysis.id, { id: analysis.id, label: analysis.label, message: analysis.message, color: analysis.color });
+          }
         }
 
+        renderRecommendations();
         renderAnalyses();
 
-        if (analysesById.size > 0) {
+        if (analysesById.size > 0 || recommendationsById.size > 0) {
           shell.classList.add("analysis-started");
           updateSetupToggleLabel();
         }
