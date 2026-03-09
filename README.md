@@ -14,8 +14,8 @@
 
 ## What is Stream Sniff
 
-Stream Sniff analyzes and helps you debug your streaming video so you can get the best quality possible.
-It inspects the incoming video and explains in plain language what you are sending, and how it could be better.
+Stream Sniff analyzes and helps you improve your streaming video quality. Analysis is available live at a URL so you
+can help a friend/help others troubleshoot online.
 
 The goal is to help someone answer practical questions like:
 
@@ -24,7 +24,9 @@ The goal is to help someone answer practical questions like:
 - Which H.264 profile am I using?
 - What settings would improve quality, compatibility, bitrate, or latency?
 
-This was written as a sibling project of [Broadcast Box](https://github.com/glimesh/broadcast-box) and contains a lot of the same code.
+![OBS Output settings example](./.github/streamSniffExample.png)
+
+This was written as a sibling project of [Broadcast Box](https://github.com/glimesh/broadcast-box).
 
 ## Using
 
