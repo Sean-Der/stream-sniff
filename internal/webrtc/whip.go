@@ -146,12 +146,12 @@ func readAndLogRTP(bearerToken, sessionID string, remoteTrack *webrtc.TrackRemot
 					case averageQP > 35:
 						recommendations = append(recommendations, recommendationItem(
 							"rec_compression",
-							"Compression looks strong. Increase bitrate, lower resolution or increase H264 profile to preserve detail.",
+							"Strong Compression. Increase bitrate/H264 profile and lower resolution/framerate.",
 						))
 					case averageQP > 28:
 						recommendations = append(recommendations, recommendationItem(
 							"rec_compression",
-							"Compression is noticeable. Increase bitrate, lower resolution or increase H264 profile to preserve detail.",
+							"noticeable Compression. Increase bitrate/H264 profile and lower resolution/framerate.",
 						))
 					default:
 						recommendations = append(recommendations, recommendationItem(

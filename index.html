@@ -472,13 +472,6 @@
         analysisHeading.textContent = `Analysis of ${bearerTokenInput.value}`;
       }
 
-      function refreshBearerToken() {
-        serverInput.value = new URL("/api/whip", window.location.href).toString();
-        bearerTokenInput.value = generateBearerToken();
-        setStatus("");
-        updateAnalysisHeading();
-      }
-
       async function createPeerConnection() {
         const peerConnection = new RTCPeerConnection();
         const analyzeDataChannel = peerConnection.createDataChannel("analyze");
@@ -512,7 +505,13 @@
         shell.classList.toggle("setup-open");
         updateSetupToggleLabel();
       });
-      refreshBearerToken();
+      serverInput.value = new URL("/api/whip", window.location.href).toString();
+      bearerTokenInput.value = (() => {
+        const bearerToken = new URL(window.location.href).searchParams.get("bearerToken");
+        return bearerToken && bearerToken.trim().length > 0 ? bearerToken : generateBearerToken();
+      })();
+      setStatus("");
+      updateAnalysisHeading();
       createPeerConnection();
     </script>
   </body>
