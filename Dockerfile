@@ -9,6 +9,7 @@ RUN go build
 FROM alpine:3.22
 RUN apk add --no-cache ca-certificates
 COPY --from=go-build /stream-sniff/stream-sniff /stream-sniff/stream-sniff
+COPY --from=go-build /stream-sniff/index.html /stream-sniff/index.html
 COPY --from=go-build /stream-sniff/.env.production /stream-sniff/.env.production
 
 ENV APP_ENV=production
