@@ -442,6 +442,9 @@
       }
 
       function applyAnalyses(payload) {
+        analysesById.clear();
+        recommendationsById.clear();
+
         for (const analysis of payload) {
           if (analysis.kind === "recommendation") {
             const message = analysis.message;
