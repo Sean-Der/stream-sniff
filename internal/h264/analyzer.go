@@ -14,7 +14,11 @@ type analysisItem struct {
 	Label   string `json:"label"`
 	Message string `json:"message"`
 	Color   string `json:"color,omitempty"`
-	Kind    string `json:"kind,omitempty"`
+}
+
+type payload struct {
+	Analyses        []analysisItem    `json:"analyses"`
+	Recommendations map[string]string `json:"recommendations"`
 }
 
 // Analyzer consumes H264 RTP packets and emits frontend JSON payloads.
@@ -97,14 +101,6 @@ func colorForAverageKeyframeInterval(seconds float64) string {
 		return "rgba(250, 204, 21, 0.22)"
 	default:
 		return "rgba(239, 68, 68, 0.22)"
-	}
-}
-
-func recommendationItem(id, message string) analysisItem {
-	return analysisItem{
-		ID:      id,
-		Message: message,
-		Kind:    "recommendation",
 	}
 }
 
@@ -205,7 +201,8 @@ func (a *Analyzer) WriteRTP(packet *rtp.Packet) []byte {
 		return nil
 	}
 
-	message, err := json.Marshal(a.items(now))
+	state := a.items(now)
+	message, err := json.Marshal(state)
 	if err != nil {
 		return nil
 	}
@@ -215,29 +212,28 @@ func (a *Analyzer) WriteRTP(packet *rtp.Packet) []byte {
 	return message
 }
 
-func (a *Analyzer) items(now time.Time) []analysisItem {
-	items := []analysisItem{
-		recommendationItem("rec_compression", ""),
-		recommendationItem("rec_keyframe_interval", ""),
-		recommendationItem("rec_disable_b_frames", ""),
+func (a *Analyzer) items(now time.Time) payload {
+	state := payload{
+		Analyses:        []analysisItem{},
+		Recommendations: map[string]string{},
 	}
 
 	elapsedSeconds := now.Sub(a.trackStartedAt).Seconds()
 	if elapsedSeconds < 1 {
 		if a.bFramesDetected {
-			items = append(items,
+			state.Analyses = append(state.Analyses,
 				analysisItem{
 					ID:      "b_frames_detected",
 					Label:   "B-Frames detected",
 					Message: "B-Frames detected",
 					Color:   "rgba(239, 68, 68, 0.22)",
 				},
-				recommendationItem("rec_disable_b_frames", "B-Frames are enabled. Disable B-Frames when you need lower latency."),
 			)
+			state.Recommendations["rec_disable_b_frames"] = "B-Frames are enabled. Disable B-Frames when you need lower latency."
 		}
 
 		if a.hasLatestSPS {
-			items = append(items,
+			state.Analyses = append(state.Analyses,
 				analysisItem{
 					ID:      "resolution",
 					Label:   "Resolution",
@@ -251,11 +247,11 @@ func (a *Analyzer) items(now time.Time) []analysisItem {
 			)
 		}
 
-		return items
+		return state
 	}
 
 	averageBitsPerSecond := float64(a.totalBits) / elapsedSeconds
-	items = append(items, analysisItem{
+	state.Analyses = append(state.Analyses, analysisItem{
 		ID:      "average_bitrate",
 		Label:   "Average Bitrate",
 		Message: formatBitrate(averageBitsPerSecond),
@@ -263,7 +259,7 @@ func (a *Analyzer) items(now time.Time) []analysisItem {
 
 	if a.qpSamples > 0 {
 		averageQP := float64(a.totalQP) / float64(a.qpSamples)
-		items = append(items, analysisItem{
+		state.Analyses = append(state.Analyses, analysisItem{
 			ID:      "average_qp",
 			Label:   "Average Quantization Parameter (QP)",
 			Message: fmt.Sprintf("%.1f", averageQP),
@@ -272,15 +268,15 @@ func (a *Analyzer) items(now time.Time) []analysisItem {
 
 		switch {
 		case averageQP > 35:
-			items[0] = recommendationItem("rec_compression", "Strong Compression. Increase bitrate and lower resolution/framerate.")
+			state.Recommendations["rec_compression"] = "Strong Compression. Increase bitrate and lower resolution/framerate."
 		case averageQP > 28:
-			items[0] = recommendationItem("rec_compression", "noticeable Compression. Increase bitrate and lower resolution/framerate.")
+			state.Recommendations["rec_compression"] = "noticeable Compression. Increase bitrate and lower resolution/framerate."
 		}
 	}
 
 	averageFPS := float64(a.totalFrames) / elapsedSeconds
 	if averageFPS > 0 {
-		items = append(items, analysisItem{
+		state.Analyses = append(state.Analyses, analysisItem{
 			ID:      "frame_rate",
 			Label:   "Frame Rate",
 			Message: fmt.Sprintf("%.1f fps", averageFPS),
@@ -289,7 +285,7 @@ func (a *Analyzer) items(now time.Time) []analysisItem {
 
 	if a.hasLatestSPS && averageFPS > 0 {
 		bitsPerPixelPerFrame := averageBitsPerSecond / (float64(a.latestSPS.Width*a.latestSPS.Height) * averageFPS)
-		items = append(items, analysisItem{
+		state.Analyses = append(state.Analyses, analysisItem{
 			ID:      "bits_per_pixel_per_frame",
 			Label:   "Bits Per Pixel Per Frame",
 			Message: fmt.Sprintf("%.3f", bitsPerPixelPerFrame),
@@ -299,7 +295,7 @@ func (a *Analyzer) items(now time.Time) []analysisItem {
 
 	if a.keyframeIntervals > 0 {
 		averageKeyframeInterval := a.totalKeyframeIntervalSeconds / float64(a.keyframeIntervals)
-		items = append(items, analysisItem{
+		state.Analyses = append(state.Analyses, analysisItem{
 			ID:      "average_time_between_keyframes",
 			Label:   "Average Time Between Keyframes",
 			Message: fmt.Sprintf("%.1fs", averageKeyframeInterval),
@@ -307,7 +303,7 @@ func (a *Analyzer) items(now time.Time) []analysisItem {
 		})
 
 		if averageKeyframeInterval >= 2 {
-			items[1] = recommendationItem("rec_keyframe_interval", "Keyframes are far apart, set to a lower value so your stream starts faster.")
+			state.Recommendations["rec_keyframe_interval"] = "Keyframes are far apart, set to a lower value so your stream starts faster."
 		}
 	}
 
@@ -325,7 +321,7 @@ func (a *Analyzer) items(now time.Time) []analysisItem {
 
 	totalClassifiedFrames := displayIFrames + displayPFrames + displayBFrames
 	if totalClassifiedFrames > 0 {
-		items = append(items, analysisItem{
+		state.Analyses = append(state.Analyses, analysisItem{
 			ID:    "frame_type_distribution",
 			Label: "Frame Type Distribution",
 			Message: fmt.Sprintf(
@@ -338,19 +334,19 @@ func (a *Analyzer) items(now time.Time) []analysisItem {
 	}
 
 	if a.bFramesDetected {
-		items = append(items,
+		state.Analyses = append(state.Analyses,
 			analysisItem{
 				ID:      "b_frames_detected",
 				Label:   "B-Frames detected",
 				Message: "B-Frames detected",
 				Color:   "rgba(239, 68, 68, 0.22)",
 			},
-			recommendationItem("rec_disable_b_frames", "B-Frames are enabled. Disable B-Frames when you need lower latency."),
 		)
+		state.Recommendations["rec_disable_b_frames"] = "B-Frames are enabled. Disable B-Frames when you need lower latency."
 	}
 
 	if a.hasLatestSPS {
-		items = append(items,
+		state.Analyses = append(state.Analyses,
 			analysisItem{
 				ID:      "resolution",
 				Label:   "Resolution",
@@ -364,5 +360,5 @@ func (a *Analyzer) items(now time.Time) []analysisItem {
 		)
 	}
 
-	return items
+	return state
 }
