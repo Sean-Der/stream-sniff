@@ -43,7 +43,6 @@ jobs:
         with:
           images: |
             seaduboi/stream-sniff
-            ghcr.io/${{ github.repository }}
           tags: |
             type=raw,value=latest
             type=ref,event=tag
