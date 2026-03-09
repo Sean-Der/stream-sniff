@@ -15,7 +15,7 @@
 ## What is Stream Sniff
 
 Stream Sniff analyzes and helps you improve your streaming video quality. Analysis is available live at a URL so you
-can help a friend/help others troubleshoot online.
+can help a friend/help others troubleshoot online. Hosted version available at [streamsniff.com](https://streamsniff.com)
 
 The goal is to help someone answer practical questions like:
 
