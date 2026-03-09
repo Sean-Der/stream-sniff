@@ -582,11 +582,12 @@ func parseRefPicListModification(reader *bitReader, isBSlice bool) error {
 				break
 			}
 
-			if modificationOfPicNumsIDC == 0 || modificationOfPicNumsIDC == 1 {
+			switch modificationOfPicNumsIDC {
+			case 0, 1:
 				if _, readErr = reader.readUE(); readErr != nil {
 					return readErr
 				}
-			} else if modificationOfPicNumsIDC == 2 {
+			case 2:
 				if _, readErr = reader.readUE(); readErr != nil {
 					return readErr
 				}
@@ -614,11 +615,12 @@ func parseRefPicListModification(reader *bitReader, isBSlice bool) error {
 				break
 			}
 
-			if modificationOfPicNumsIDC == 0 || modificationOfPicNumsIDC == 1 {
+			switch modificationOfPicNumsIDC {
+			case 0, 1:
 				if _, readErr = reader.readUE(); readErr != nil {
 					return readErr
 				}
-			} else if modificationOfPicNumsIDC == 2 {
+			case 2:
 				if _, readErr = reader.readUE(); readErr != nil {
 					return readErr
 				}
