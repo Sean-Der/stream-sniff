@@ -30,6 +30,8 @@
         margin: 0;
         min-height: 100vh;
         padding: 24px;
+        display: flex;
+        flex-direction: column;
         background:
           radial-gradient(circle at top, rgba(96, 165, 250, 0.18), transparent 28%),
           radial-gradient(circle at 20% 80%, rgba(59, 130, 246, 0.12), transparent 24%),
@@ -54,9 +56,45 @@
       .shell {
         width: min(42rem, 100%);
         margin: 72px auto 0;
+        flex: 1 0 auto;
         display: flex;
         flex-direction: column;
         gap: 14px;
+      }
+
+      .site-footer {
+        width: min(42rem, 100%);
+        margin: 24px auto 0;
+        padding: 24px 8px 0;
+      }
+
+      .site-footer-links {
+        margin: 0;
+        padding: 0;
+        list-style: none;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        gap: 18px;
+        color: var(--text-muted);
+        font-size: 1.3rem;
+      }
+
+      .site-footer-links li {
+        display: flex;
+        align-items: center;
+      }
+
+      .site-footer a {
+        display: inline-flex;
+        align-items: center;
+        color: inherit;
+        text-decoration: none;
+        line-height: 1;
+      }
+
+      .site-footer a:hover {
+        text-decoration: underline;
       }
 
       .panel {
@@ -166,10 +204,6 @@
         margin: 4px 0 0;
         padding-left: 18px;
         color: var(--text-muted);
-      }
-
-      li + li {
-        margin-top: 6px;
       }
 
       code {
@@ -373,6 +407,12 @@
         <ul id="analysis-list" class="analysis-list"></ul>
       </section>
     </div>
+    <footer class="site-footer">
+      <ul class="site-footer-links">
+        <li><a href="https://github.com/Sean-Der/stream-sniff" target="_blank" rel="noreferrer">GitHub</a></li>
+        <li><a href="https://pion.ly" target="_blank" rel="noreferrer">Pion</a></li>
+      </ul>
+    </footer>
     <script>
       const shell = document.querySelector(".shell");
       const serverInput = document.getElementById("server");
