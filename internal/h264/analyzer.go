@@ -17,6 +17,7 @@ type analysisItem struct {
 }
 
 type payload struct {
+	Type            string            `json:"type"`
 	Analyses        []analysisItem    `json:"analyses"`
 	Recommendations map[string]string `json:"recommendations"`
 }
@@ -214,6 +215,7 @@ func (a *Analyzer) WriteRTP(packet *rtp.Packet) []byte {
 
 func (a *Analyzer) items(now time.Time) payload {
 	state := payload{
+		Type:            "video",
 		Analyses:        []analysisItem{},
 		Recommendations: map[string]string{},
 	}

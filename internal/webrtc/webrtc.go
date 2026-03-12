@@ -175,6 +175,10 @@ func PopulateMediaEngine(m *webrtc.MediaEngine) error {
 		}
 	}
 
+	if err := m.RegisterHeaderExtension(webrtc.RTPHeaderExtensionCapability{URI: "urn:ietf:params:rtp-hdrext:ssrc-audio-level"}, webrtc.RTPCodecTypeAudio); err != nil {
+		return err
+	}
+
 	for _, codecDetails := range []struct {
 		payloadType uint8
 		mimeType    string

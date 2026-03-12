@@ -175,7 +175,8 @@
       }
 
       .shell.analysis-started .analysis-panel {
-        max-height: 1400px;
+        max-height: 5000px;
+        overflow: visible;
         opacity: 1;
         transform: translateY(0);
         padding-top: 32px;
@@ -359,13 +360,14 @@
       <main class="panel setup-panel">
         <h1>Stream Sniff</h1>
         <p>
-          Stream Sniff analyzes your streaming video so you can get the best quality possible. It inspects what you send
-          and explains, in plain language, how it could be better.
+          Stream Sniff analyzes your streaming video and audio so you can get the best quality possible. It inspects
+          what you send and explains, in plain language, how it could be better.
         </p>
 
         <ul>
           <li>See whether your video looks overly compressed.</li>
           <li>Check the resolution and H.264 profile you are sending.</li>
+          <li>Check audio levels, clipping, and silence detection.</li>
           <li>Get practical recommendations and the trade-offs behind them.</li>
         </ul>
 
@@ -402,9 +404,14 @@
         <ul id="recommendations-list" class="recommendations-list"></ul>
 
         <div class="analysis-header">
-          <h2 id="analysis-heading">Analysis</h2>
+          <h2>Video</h2>
         </div>
-        <ul id="analysis-list" class="analysis-list"></ul>
+        <ul id="video-analysis-list" class="analysis-list"></ul>
+
+        <div class="analysis-header">
+          <h2>Audio</h2>
+        </div>
+        <ul id="audio-analysis-list" class="analysis-list"></ul>
       </section>
     </div>
     <footer class="site-footer">
@@ -420,11 +427,14 @@
       const bearerTokenInput = document.getElementById("bearer-token");
       const copyButton = document.getElementById("copy-button");
       const setupToggle = document.getElementById("setup-toggle");
-      const analysisHeading = document.getElementById("analysis-heading");
       const status = document.getElementById("status");
-      const analysisList = document.getElementById("analysis-list");
+      const videoAnalysisList = document.getElementById("video-analysis-list");
+      const audioAnalysisList = document.getElementById("audio-analysis-list");
       const recommendationsList = document.getElementById("recommendations-list");
-      const analysesById = new Map();
+      const videoAnalysesById = new Map();
+      const audioAnalysesById = new Map();
+      let videoRecommendations = {};
+      let audioRecommendations = {};
 
       function randomChunk() {
         return Math.random().toString(36).slice(2, 7);
@@ -438,14 +448,10 @@
         status.textContent = message;
       }
 
-      function renderAnalyses() {
-        analysisList.textContent = "";
+      function renderAnalysisList(listElement, analysesMap) {
+        listElement.textContent = "";
 
-        if (analysesById.size === 0) {
-          return;
-        }
-
-        for (const analysis of analysesById.values()) {
+        for (const analysis of analysesMap.values()) {
           const item = document.createElement("li");
           item.className = "analysis-item";
 
@@ -462,35 +468,45 @@
 
           item.appendChild(idElement);
           item.appendChild(messageElement);
-          analysisList.appendChild(item);
+          listElement.appendChild(item);
         }
       }
 
-      function renderRecommendations(recommendations) {
+      function renderRecommendations() {
         recommendationsList.textContent = "";
+        const merged = Object.assign({}, videoRecommendations, audioRecommendations);
 
-        for (const id of Object.keys(recommendations)) {
-          if (recommendations[id].length === 0) {
+        for (const id of Object.keys(merged)) {
+          if (merged[id].length === 0) {
             continue;
           }
 
           const item = document.createElement("li");
-          item.textContent = recommendations[id];
+          item.textContent = merged[id];
           recommendationsList.appendChild(item);
         }
       }
 
       function applyAnalyses(payload) {
-        analysesById.clear();
+        const isAudio = payload.type === "audio";
+        const analysesMap = isAudio ? audioAnalysesById : videoAnalysesById;
+        const listElement = isAudio ? audioAnalysisList : videoAnalysisList;
 
+        analysesMap.clear();
         for (const analysis of payload.analyses || []) {
-          analysesById.set(analysis.id, { id: analysis.id, label: analysis.label, message: analysis.message, color: analysis.color });
+          analysesMap.set(analysis.id, { id: analysis.id, label: analysis.label, message: analysis.message, color: analysis.color });
         }
 
-        renderRecommendations(payload.recommendations || {});
-        renderAnalyses();
+        if (isAudio) {
+          audioRecommendations = payload.recommendations || {};
+        } else {
+          videoRecommendations = payload.recommendations || {};
+        }
 
-        if (analysesById.size > 0 || Object.keys(payload.recommendations || {}).length > 0) {
+        renderRecommendations();
+        renderAnalysisList(listElement, analysesMap);
+
+        if (analysesMap.size > 0 || Object.keys(payload.recommendations || {}).length > 0) {
           shell.classList.add("analysis-started");
           updateSetupToggleLabel();
         }
@@ -498,10 +514,6 @@
 
       function updateSetupToggleLabel() {
         setupToggle.textContent = shell.classList.contains("setup-open") ? "Hide Setup" : "Show Setup";
-      }
-
-      function updateAnalysisHeading() {
-        analysisHeading.textContent = `Analysis of ${bearerTokenInput.value}`;
       }
 
       async function createPeerConnection() {
@@ -543,7 +555,6 @@
         return bearerToken && bearerToken.trim().length > 0 ? bearerToken : generateBearerToken();
       })();
       setStatus("");
-      updateAnalysisHeading();
       createPeerConnection();
     </script>
   </body>
